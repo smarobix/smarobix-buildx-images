@@ -89,19 +89,19 @@ build:jazzy:
 
 #   allow_failure: true
 
-# Tag as latest on main branch
-tag:latest:
-  stage: tag
-  image: docker:24-dind
-  services:
-    - docker:24-dind
-  before_script:
-    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
-  script:
-    - docker pull ${IMAGE_NAME}:${BASE_TAG}
-    - docker tag ${IMAGE_NAME}:${BASE_TAG} ${IMAGE_NAME}:${LATEST_TAG}
-    - docker push ${IMAGE_NAME}:${LATEST_TAG}
-  only:
-    - main
-  needs:
-    - build:arm64
+# # Tag as latest on main branch
+# tag:latest:
+#   stage: tag
+#   image: docker:24-dind
+#   services:
+#     - docker:24-dind
+#   before_script:
+#     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+#   script:
+#     - docker pull ${IMAGE_NAME}:${BASE_TAG}
+#     - docker tag ${IMAGE_NAME}:${BASE_TAG} ${IMAGE_NAME}:${LATEST_TAG}
+#     - docker push ${IMAGE_NAME}:${LATEST_TAG}
+#   only:
+#     - main
+#   needs:
+#     - build:arm64
