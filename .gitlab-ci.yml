@@ -1,0 +1,119 @@
+variables:
+  # Docker-in-Docker configuration
+  DOCKER_DRIVER: overlay2
+  DOCKER_TLS_CERTDIR: "/certs"
+
+  # GitLab Container Registry
+  IMAGE_NAME: ${CI_REGISTRY_IMAGE}
+
+  # Image tags
+  JAZZY_TAG: jazzy-base
+  LATEST_TAG: latest
+
+stages:
+  - build
+  - tag
+
+# Common script for setting up Docker buildx
+.setup_buildx: &setup_buildx
+  before_script:
+    # Setup QEMU for ARM64 emulation
+    - docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
+    # Login to GitLab Container Registry (credentials are automatically provided)
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+
+    # Create and use buildx builder
+    - docker buildx create --name multiarch-builder --driver docker-container --use || true
+    - docker buildx inspect --bootstrap
+
+# Build ROS 2 Jazzy ARM64 image
+build:jazzy:
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  <<: *setup_buildx
+  script:
+    # Build and push Jazzy ARM64 image
+    - |
+      docker buildx build \
+        --platform linux/arm64 \
+        --file Dockerfile.jazzy \
+        --tag ${IMAGE_NAME}:${JAZZY_TAG} \
+        --tag ${IMAGE_NAME}:${JAZZY_TAG}-${CI_COMMIT_SHORT_SHA} \
+        --cache-from type=registry,ref=${IMAGE_NAME}:jazzy-buildcache \
+        --cache-to type=registry,ref=${IMAGE_NAME}:jazzy-buildcache,mode=max \
+        --push \
+        .
+
+  tags:
+    - docker
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_TAG
+
+# Build other variants if Dockerfiles exist
+build:humble:
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  <<: *setup_buildx
+  script:
+    - |
+      if [ -f "Dockerfile.humble" ]; then
+        docker buildx build \
+          --platform linux/arm64 \
+          --file Dockerfile.humble \
+          --tag ${IMAGE_NAME}:humble-base \
+          --tag ${IMAGE_NAME}:humble-base-${CI_COMMIT_SHORT_SHA} \
+          --cache-from type=registry,ref=${IMAGE_NAME}:humble-buildcache \
+          --cache-to type=registry,ref=${IMAGE_NAME}:humble-buildcache,mode=max \
+          --push \
+          .
+      else
+        echo "Dockerfile.humble not found, skipping humble build"
+      fi
+
+  tags:
+    - docker
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && exists(["Dockerfile.humble"])
+    - if: $CI_COMMIT_BRANCH == "develop" && exists(["Dockerfile.humble"])
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+  allow_failure: true
+
+# Tag Jazzy as latest on main branch
+tag:latest:
+  stage: tag
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  before_script:
+    - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
+  script:
+    - docker pull ${IMAGE_NAME}:${JAZZY_TAG}
+    - docker tag ${IMAGE_NAME}:${JAZZY_TAG} ${IMAGE_NAME}:${LATEST_TAG}
+    - docker push ${IMAGE_NAME}:${LATEST_TAG}
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+  needs:
+    - build:jazzy
+
+# Manual cleanup job for old images
+cleanup:registry:
+  stage: tag
+  image: registry.gitlab.com/gitlab-org/gitlab:latest
+  script:
+    - echo "Manual cleanup job - run when needed to clean old images"
+    - echo "You can implement GitLab API calls to clean old tags here"
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - when: manual
+  allow_failure: true
