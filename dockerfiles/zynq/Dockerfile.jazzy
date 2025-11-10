@@ -1,0 +1,111 @@
+FROM arm32v7/ubuntu:noble
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DISTRO=jazzy
+
+# --- Locale and base tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales software-properties-common curl gnupg2 ca-certificates
+
+RUN locale-gen en_US en_US.UTF-8 && \
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \ 
+    export LANG=en_US.UTF-8
+
+# --- Enable universe (required for ROS)
+RUN add-apt-repository universe && apt-get update
+
+# --- Add Xilinx and Lely PPAs
+RUN add-apt-repository -y ppa:xilinx-apps/xilinx-drivers && \
+    add-apt-repository -y ppa:ubuntu-xilinx/gstreamer && \
+    add-apt-repository -y ppa:ubuntu-xilinx/sdk && \
+    apt-get update
+
+# --- Install ROS build dependencies
+RUN apt-get install -y --no-install-recommends \
+    git wget unzip build-essential cmake g++ gcc pkg-config python3-pip \
+    python3-colcon-common-extensions python3-vcstool python3-rosdep \
+    python3-dev python3-numpy libeigen3-dev libtinyxml2-dev \
+    libssl-dev libasio-dev libboost-all-dev
+
+# --- Set OpenCV environment variables globally
+ENV OpenCV_DIR=/opt/install/lib/cmake/opencv4
+ENV LD_LIBRARY_PATH=/opt/install/lib
+
+# --- Build opencv from source
+RUN cd /tmp && \
+    git clone https://github.com/opencv/opencv_contrib.git --branch=4.10.0 && \
+    git clone https://github.com/opencv/opencv.git --branch=4.10.0
+
+RUN cd /tmp/opencv && \
+    mkdir build && \
+    cd build && \
+    cmake -D CMAKE_BUILD_TYPE=RELEASE \
+          -D CMAKE_INSTALL_PREFIX=/opt/install \
+          -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
+          -D BUILD_EXAMPLES=OFF \
+          -D BUILD_TESTS=OFF \
+          -D BUILD_opencv_python2=OFF \
+          -D BUILD_opencv_python3=OFF .. && \
+    make -j$(nproc)
+
+RUN cd /tmp/opencv/build && \
+    rm -rf /opt/install/* && \
+    make install && \
+    ldconfig
+
+# --- Build ROS from source
+
+# Initialize rosdep
+RUN rosdep init && rosdep update
+
+# Import ROS 2 source repositories
+RUN mkdir -p /tmp/ros2_${ROS_DISTRO}/src && \
+    cd /tmp/ros2_${ROS_DISTRO} && \
+    vcs import --input https://raw.githubusercontent.com/ros2/ros2/${ROS_DISTRO}/ros2.repos src
+
+# Install dependencies (skip packages that don't have apt equivalents on armhf)
+RUN cd /tmp/ros2_${ROS_DISTRO} && \
+    rosdep install --from-paths src --ignore-src --rosdistro ${ROS_DISTRO} -y \
+    --skip-keys "libopencv-dev libopencv-contrib-dev libopencv-imgproc-dev python3-opencv" || true
+
+# Build only base ROS + required packages (cv_bridge, image_transport, pluginlib, rclcpp, sensor_msgs)
+# Using --packages-up-to builds only these packages and their dependencies
+RUN cd /tmp/ros2_${ROS_DISTRO} && \
+    colcon build \
+    --symlink-install \
+    --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+    --packages-up-to \
+        cv_bridge \
+        image_transport \
+        pluginlib \
+        rclcpp \
+        sensor_msgs
+
+# Install built packages to /opt/ros/${ROS_DISTRO}
+RUN mkdir -p /opt/ros/${ROS_DISTRO} && \
+    cp -r /tmp/ros2_${ROS_DISTRO}/install/* /opt/ros/${ROS_DISTRO}/
+
+# Clean up ROS build directory
+RUN rm -rf /tmp/ros2_${ROS_DISTRO}
+
+# --- Clean up OpenCV source files
+RUN rm -rf /tmp/opencv /tmp/opencv_contrib
+
+# --- Set ROS environment variables
+ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV LD_LIBRARY_PATH=/opt/install/lib:/opt/ros/${ROS_DISTRO}/lib
+ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python3.12/site-packages
+ENV ROS_DISTRO=${ROS_DISTRO}
+ENV ROS_VERSION=2
+ENV ROS_PYTHON_VERSION=3
+
+# --- Clean up apt cache
+RUN rm -rf /var/lib/apt/lists/*
+
+# --- Default working directory
+WORKDIR /root
+
+# Source ROS setup in bashrc for interactive shells
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc

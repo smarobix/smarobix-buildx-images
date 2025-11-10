@@ -6,9 +6,6 @@ variables:
   # GitLab Container Registry
   IMAGE_NAME: ${CI_REGISTRY_IMAGE}
 
-  # Image tags
-  JAZZY_TAG: jazzy-base
-
 stages:
   - build
   - tag
@@ -26,25 +23,112 @@ stages:
     - docker buildx create --name multiarch-builder --driver docker-container --use || true
     - docker buildx inspect --bootstrap
 
-# Build ROS 2 Jazzy ARM64 image
-build:jazzy:
+# Build K26 (Kria ARM64) ROS 2 Jazzy image
+build:k26-jazzy:
   stage: build
   image: docker:24-dind
   services:
     - docker:24-dind
   <<: *setup_buildx
   script:
-    # Build and push Jazzy ARM64 image
+    # Build and push K26 Jazzy ARM64 image
     - |
       docker buildx build \
         --platform linux/arm64 \
-        --file Dockerfile.jazzy \
-        --tag ${IMAGE_NAME}:${JAZZY_TAG} \
-        --tag ${IMAGE_NAME}:${JAZZY_TAG}-${CI_COMMIT_SHORT_SHA} \
-        --cache-from type=registry,ref=${IMAGE_NAME}:jazzy-buildcache \
-        --cache-to type=registry,ref=${IMAGE_NAME}:jazzy-buildcache,mode=max \
+        --file dockerfiles/k26/Dockerfile.jazzy \
+        --tag ${IMAGE_NAME}:k26-jazzy \
+        --tag ${IMAGE_NAME}:k26-jazzy-${CI_COMMIT_SHORT_SHA} \
+        --cache-from type=registry,ref=${IMAGE_NAME}:k26-jazzy-buildcache \
+        --cache-to type=registry,ref=${IMAGE_NAME}:k26-jazzy-buildcache,mode=max \
         --push \
-        .
+        dockerfiles/k26
+
+  tags:
+    - docker
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_TAG
+
+# Build K26 (Kria ARM64) ROS 2 Humble image
+build:k26-humble:
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  <<: *setup_buildx
+  script:
+    # Build and push K26 Humble ARM64 image
+    - |
+      docker buildx build \
+        --platform linux/arm64 \
+        --file dockerfiles/k26/Dockerfile.humble \
+        --tag ${IMAGE_NAME}:k26-humble \
+        --tag ${IMAGE_NAME}:k26-humble-${CI_COMMIT_SHORT_SHA} \
+        --cache-from type=registry,ref=${IMAGE_NAME}:k26-humble-buildcache \
+        --cache-to type=registry,ref=${IMAGE_NAME}:k26-humble-buildcache,mode=max \
+        --push \
+        dockerfiles/k26
+
+  tags:
+    - docker
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_TAG
+
+# Build Zynq (ARM32/armhf) ROS 2 Jazzy image
+build:zynq-jazzy:
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  <<: *setup_buildx
+  script:
+    # Build and push Zynq Jazzy ARM32 image
+    - |
+      docker buildx build \
+        --platform linux/arm/v7 \
+        --file dockerfiles/zynq/Dockerfile.jazzy \
+        --tag ${IMAGE_NAME}:zynq-jazzy \
+        --tag ${IMAGE_NAME}:zynq-jazzy-${CI_COMMIT_SHORT_SHA} \
+        --cache-from type=registry,ref=${IMAGE_NAME}:zynq-jazzy-buildcache \
+        --cache-to type=registry,ref=${IMAGE_NAME}:zynq-jazzy-buildcache,mode=max \
+        --push \
+        dockerfiles/zynq
+
+  tags:
+    - docker
+
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_BRANCH == "develop"
+    - if: $CI_PIPELINE_SOURCE == "web"
+    - if: $CI_COMMIT_TAG
+
+# Build Zynq (ARM32/armhf) ROS 2 Humble image
+build:zynq-humble:
+  stage: build
+  image: docker:24-dind
+  services:
+    - docker:24-dind
+  <<: *setup_buildx
+  script:
+    # Build and push Zynq Humble ARM32 image
+    - |
+      docker buildx build \
+        --platform linux/arm/v7 \
+        --file dockerfiles/zynq/Dockerfile.humble \
+        --tag ${IMAGE_NAME}:zynq-humble \
+        --tag ${IMAGE_NAME}:zynq-humble-${CI_COMMIT_SHORT_SHA} \
+        --cache-from type=registry,ref=${IMAGE_NAME}:zynq-humble-buildcache \
+        --cache-to type=registry,ref=${IMAGE_NAME}:zynq-humble-buildcache,mode=max \
+        --push \
+        dockerfiles/zynq
 
   tags:
     - docker
