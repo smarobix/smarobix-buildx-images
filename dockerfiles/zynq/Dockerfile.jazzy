@@ -24,7 +24,7 @@ RUN add-apt-repository -y ppa:xilinx-apps/xilinx-drivers && \
 RUN apt-get install -y --no-install-recommends \
     git wget unzip build-essential cmake g++ gcc pkg-config python3-pip \
     python3-dev python3-numpy libeigen3-dev libtinyxml2-dev \
-    libssl-dev libasio-dev libboost-all-dev
+    libssl-dev libasio-dev libboost-all-dev apt-utils
 
 # --- Install ROS tools via pip (not available in apt for armv7)
 RUN pip3 install --break-system-packages \
@@ -63,18 +63,30 @@ RUN cd /tmp/opencv/build && \
 # Initialize rosdep
 RUN rosdep init && rosdep update
 
+# Copy extra repos file
+COPY extra.repos /tmp/extra.repos
+
 # Import ROS 2 source repositories
 RUN mkdir -p /tmp/ros2_${ROS_DISTRO}/src && \
     cd /tmp/ros2_${ROS_DISTRO} && \
     vcs import --input https://raw.githubusercontent.com/ros2/ros2/${ROS_DISTRO}/ros2.repos src
 
+# Import extra repositories (vision_opencv, vision_msgs)
+RUN cd /tmp/ros2_${ROS_DISTRO} && \
+    vcs import --input /tmp/extra.repos src
+
 # Install dependencies (skip packages that don't have apt equivalents on armhf)
 RUN cd /tmp/ros2_${ROS_DISTRO} && \
     rosdep install --from-paths src --ignore-src --rosdistro ${ROS_DISTRO} -y \
-    --skip-keys "libopencv-dev libopencv-contrib-dev libopencv-imgproc-dev python3-opencv" || true
+    --skip-keys "libopencv-dev libopencv-contrib-dev libopencv-imgproc-dev python3-opencv fastcdr rti-connext-dds-6.0.1 urdfdom_headers" || true
 
 # Build only base ROS + required packages (cv_bridge, image_transport, pluginlib, rclcpp, sensor_msgs)
 # Using --packages-up-to builds only these packages and their dependencies
+RUN apt-get install -y --no-install-recommends libacl1-dev
+
+RUN pip3 install --break-system-packages \
+    lark --prefer-binary
+    
 RUN cd /tmp/ros2_${ROS_DISTRO} && \
     colcon build \
     --symlink-install \
