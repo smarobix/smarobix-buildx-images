@@ -1,41 +1,85 @@
-FROM arm64v8/ros:jazzy-ros-base
+FROM arm64v8/ubuntu:noble
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=jazzy
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
 
 # --- Locale and base tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    locales software-properties-common curl gnupg2 ca-certificates
+    locales \
+    software-properties-common \
+    curl \
+    gnupg2 \
+    lsb-release \
+    ca-certificates \
+    && locale-gen en_US en_US.UTF-8 \
+    && update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 \
+    && rm -rf /var/lib/apt/lists/*
 
 # --- Enable universe (required for ROS)
-RUN add-apt-repository universe && apt-get update
+RUN add-apt-repository universe && apt-get update && rm -rf /var/lib/apt/lists/*
 
-# --- Add Xilinx and Lely PPAs
+# --- Add ROS 2 repository using official method
+RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | \
+    gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | \
+    tee /etc/apt/sources.list.d/ros2.list > /dev/null
+
+# --- Add Xilinx PPAs
 RUN add-apt-repository -y ppa:xilinx-apps/xilinx-drivers && \
     add-apt-repository -y ppa:ubuntu-xilinx/gstreamer && \
     add-apt-repository -y ppa:ubuntu-xilinx/sdk && \
-    apt-get update
+    apt-get update && rm -rf /var/lib/apt/lists/*
 
-# --- Install ROS and dependencies
-RUN apt-get install -y --no-install-recommends \
-    git wget unzip build-essential cmake g++ gcc pkg-config python3-pip \
-    python3-colcon-common-extensions python3-vcstool python3-rosdep 
+# --- Install ROS and core development tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    wget \
+    unzip \
+    build-essential \
+    cmake \
+    g++ \
+    gcc \
+    pkg-config \
+    python3-pip \
+    python3-colcon-common-extensions \
+    python3-vcstool \
+    python3-rosdep \
+    ros-dev-tools \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get install -y --no-install-recommends \
-    libgstreamer-plugins-base1.0-dev libgstreamer-plugins-good1.0-dev libgstreamer-plugins-bad1.0-dev \
-    gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-libav \
-    libyuv-dev gstreamer1.0-tools 
+# --- Install GStreamer dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgstreamer-plugins-base1.0-dev \
+    libgstreamer-plugins-good1.0-dev \
+    libgstreamer-plugins-bad1.0-dev \
+    gstreamer1.0-plugins-good \
+    gstreamer1.0-plugins-bad \
+    gstreamer1.0-libav \
+    libyuv-dev \
+    gstreamer1.0-tools \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get install -y --no-install-recommends \
-    ros-${ROS_DISTRO}-ros-base 
+# --- Install ROS base and packages
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-${ROS_DISTRO}-ros-base \
+    ros-${ROS_DISTRO}-cv-bridge \
+    ros-${ROS_DISTRO}-image-transport \
+    ros-${ROS_DISTRO}-pluginlib \
+    ros-${ROS_DISTRO}-rclcpp \
+    ros-${ROS_DISTRO}-sensor-msgs \
+    ros-${ROS_DISTRO}-vision-msgs \
+    ros-${ROS_DISTRO}-v4l2-camera \
+    ros-${ROS_DISTRO}-std-srvs \
+    nlohmann-json3-dev \
+    && rm -rf /var/lib/apt/lists/*
 
-RUN apt-get install -y --no-install-recommends \
-    ros-${ROS_DISTRO}-cv-bridge ros-${ROS_DISTRO}-image-transport \
-    ros-${ROS_DISTRO}-pluginlib ros-${ROS_DISTRO}-rclcpp ros-${ROS_DISTRO}-sensor-msgs   
-
-RUN apt-get install -y gcc-aarch64-linux-gnu g++-aarch64-linux-gnu
-
-RUN rm -rf /var/lib/apt/lists/*
+# --- Install cross-compilation toolchain
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc-aarch64-linux-gnu \
+    g++-aarch64-linux-gnu \
+    && rm -rf /var/lib/apt/lists/*
 
 # --- Init rosdep
 RUN rosdep init || true && rosdep update
@@ -46,10 +90,9 @@ ENV LD_LIBRARY_PATH=/opt/install/lib
 
 # --- Build opencv from source
 RUN cd /tmp && \
-    git clone https://github.com/opencv/opencv_contrib.git --branch=4.10.0 && \
-    git clone https://github.com/opencv/opencv.git --branch=4.10.0
-
-RUN cd /tmp/opencv && \
+    git clone https://github.com/opencv/opencv_contrib.git --branch=4.10.0 --depth 1 && \
+    git clone https://github.com/opencv/opencv.git --branch=4.10.0 --depth 1 && \
+    cd /tmp/opencv && \
     mkdir build && \
     cd build && \
     cmake -D CMAKE_BUILD_TYPE=RELEASE \
@@ -60,20 +103,21 @@ RUN cd /tmp/opencv && \
           -D CMAKE_CXX_COMPILER=aarch64-linux-gnu-g++ \
           -D OPENCV_EXTRA_MODULES_PATH=../../opencv_contrib/modules \
           -D BUILD_EXAMPLES=OFF \
-          -D BUILD_TESTS=OFF .. && \
-    make -j4
-
-RUN cd /tmp/opencv/build && \
+          -D BUILD_TESTS=OFF \
+          -D BUILD_PERF_TESTS=OFF \
+          -D BUILD_opencv_apps=OFF \
+          -D BUILD_DOCS=OFF .. && \
+    make -j$(nproc) && \
     rm -rf /opt/install/* && \
     make install && \
-    ldconfig
+    ldconfig && \
+    cd / && \
+    rm -rf /tmp/opencv /tmp/opencv_contrib
 
-# --- Clean up OpenCV source files
-RUN rm -rf /tmp/opencv /tmp/opencv_contrib
+# --- Set working directory
+WORKDIR /root
 
-# --- Install additional dependencies
-RUN apt-get update && apt-get install -y nlohmann-json3-dev \
-    ros-${ROS_DISTRO}-vision-msgs ros-${ROS_DISTRO}-v4l2-camera ros-${ROS_DISTRO}-pluginlib \
-    ros-${ROS_DISTRO}-sensor-msgs ros-${ROS_DISTRO}-std-srvs ros-${ROS_DISTRO}-image-transport
+# --- Source ROS setup in bashrc for interactive use
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc
 
-RUN rm -rf /var/lib/apt/lists/*
+CMD ["/bin/bash"]
