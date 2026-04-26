@@ -1,7 +1,7 @@
-FROM arm32v7/ubuntu:noble
+FROM arm32v7/ubuntu:jammy
 
 ENV DEBIAN_FRONTEND=noninteractive
-ENV ROS_DISTRO=jazzy
+ENV ROS_DISTRO=humble
 
 # --- Locale, base tools, and repositories (single layer)
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -9,29 +9,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     locale-gen en_US en_US.UTF-8 && \
     update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
     add-apt-repository universe && \
-    add-apt-repository -y ppa:xilinx-apps/xilinx-drivers && \
-    add-apt-repository -y ppa:ubuntu-xilinx/gstreamer && \
-    add-apt-repository -y ppa:ubuntu-xilinx/sdk && \
     apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 ENV LANG=en_US.UTF-8
 
-# --- Install build dependencies (single layer)
+# --- Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget unzip build-essential cmake g++ gcc pkg-config python3-pip \
     python3-dev python3-numpy libeigen3-dev libtinyxml2-dev \
     libssl-dev libasio-dev libboost-all-dev apt-utils \
     libacl1-dev liblttng-ust-dev && \
-    pip3 install --break-system-packages \
-        colcon-common-extensions vcstool rosdep lark && \
+    pip3 install \
+        colcon-common-extensions vcstool rosdep lark "empy==3.3.4" && \
     rm -rf /var/lib/apt/lists/*
 
 # --- Set OpenCV environment variables globally
 ENV OpenCV_DIR=/opt/install/lib/cmake/opencv4
 ENV LD_LIBRARY_PATH=/opt/install/lib
 
-# --- Build OpenCV from source (build + install + cleanup in one layer)
+# --- Build OpenCV from source
 RUN cd /tmp && \
     git clone https://github.com/opencv/opencv_contrib.git --branch=4.13.0 --depth 1 && \
     git clone https://github.com/opencv/opencv.git --branch=4.13.0 --depth 1 && \
@@ -42,8 +39,7 @@ RUN cd /tmp && \
           -D BUILD_EXAMPLES=OFF \
           -D BUILD_TESTS=OFF \
           -D BUILD_PERF_TESTS=OFF \
-          -D BUILD_DOCS=OFF \
-          .. && \
+          -D BUILD_DOCS=OFF .. && \
     make -j$(nproc) && \
     make install && \
     ldconfig && \
@@ -52,7 +48,7 @@ RUN cd /tmp && \
 # --- Prepare ROS 2 source tree
 RUN rosdep init && rosdep update
 
-COPY extra.repos /tmp/extra.repos
+COPY extra.repos.humble /tmp/extra.repos
 
 RUN mkdir -p /tmp/ros2_${ROS_DISTRO}/src && \
     cd /tmp/ros2_${ROS_DISTRO} && \
@@ -149,7 +145,7 @@ RUN ros-build \
         rclcpp_lifecycle
 
 # ============================================================
-# Phase 4: Extra packages — edit freely, phases 1-3 stay cached
+# Phase 4: Extra packages — edit freely, phases 1 & 2 stay cached
 # ============================================================
 RUN ros-build \
         cv_bridge \
@@ -169,7 +165,7 @@ ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
 ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
 ENV LD_LIBRARY_PATH=/opt/install/lib:/opt/ros/${ROS_DISTRO}/lib
 ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
-ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python3.12/site-packages
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python3.10/site-packages
 ENV ROS_DISTRO=${ROS_DISTRO}
 ENV ROS_VERSION=2
 ENV ROS_PYTHON_VERSION=3
