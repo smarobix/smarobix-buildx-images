@@ -1,332 +1,132 @@
-# ROS 2 Kria Cross-Compilation Container Registry
+# buildx-docker-images
 
-<!-- [![Pipeline Status](https://git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile/badges/main/pipeline.svg)](https://git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile/-/pipelines)
-[![Docker Images](https://img.shields.io/badge/docker-registry-blue)](https://git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile/container_registry) -->
+CI pipeline that produces two kinds of artifacts for cross-compiling ROS 2 to embedded ARM boards. First, board-specific Docker images that [`colcon-buildx`](https://github.com/smarobix/colcon-buildx) consumes as its cross-compile environment. Second, ROS 2 install trees for non-Tier-1 boards where the official buildfarm does not publish binaries.
 
-Pre-built ARM64 Docker containers for ROS 2 cross-compilation targeting Xilinx Kria boards and other ARM64 platforms. These images are automatically built via GitLab CI and available through GitLab Container Registry.
+## Why this exists
 
-## 🚀 Quick Start
+`armhf` is a Tier 3 architecture in [`REP-2000`](https://www.ros.org/reps/rep-2000.html). The ROS buildfarm does not publish binary apt packages for `armhf` on Humble or Jazzy, which leaves contributors with two bad options: build ROS from source on the board itself (slow, and a stray `apt upgrade` resets it), or build it from source for every workspace (hours per build). This pipeline does the source build once, scopes it to a usable subset, and ships an install tree that drops into `/opt/ros/<distro>` on the board.
 
-### Pull Pre-built Images
+For `arm64` boards (Tier 1) the official binaries already exist; the value here is the cross-compile Docker image (toolchain, GStreamer, Xilinx PPAs for Kria, custom OpenCV) so downstream workspaces can build against a known-good environment.
 
-**Latest Stable (Jazzy):**
+## What is currently built
+
+| Board(s) | Architecture | ROS distros | Artifact | Status |
+|---|---|---|---|---|
+| Kria K26 | `arm64` | Humble, Jazzy | Cross-compile Docker image | Published |
+| Pynq-Z1 / Pynq-Z2 | `armhf` (Cortex-A9, Zynq-7020) | Humble, Jazzy | ROS 2 install tree (zip of `/opt/ros/<distro>`) | In progress |
+
+Pynq-Z1 and Pynq-Z2 share the same Zynq-7020 SoC, so a single set of Dockerfiles under `dockerfiles/pynq-z1/` produces an install tree that runs on either board.
+
+Published images live on Docker Hub under `sapertuz/smrbx-buildx`. The migration to a public, namespaced registry is part of an upcoming follow-up; until then, image pulls and CI both go through Docker Hub.
+
+## Cross-compile Docker images (`arm64`)
+
+The Kria K26 images are built from `dockerfiles/k26/Dockerfile.{jazzy,humble}` and pushed on every push to `main`, every push to `develop`, every tag, and on manual web triggers.
+
 ```bash
-docker pull registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest
+docker pull --platform linux/arm64 sapertuz/smrbx-buildx:kv26-jazzy
+docker pull --platform linux/arm64 sapertuz/smrbx-buildx:kv26-humble
 ```
 
-**Specific ROS 2 Distributions:**
+What's inside (Jazzy variant; Humble is similar):
+
+- Ubuntu 24.04 (Noble) base
+- ROS 2 Jazzy `ros-base` plus a small extra set (`cv-bridge`, `image-transport`, `vision-msgs`, `v4l2-camera`)
+- Custom OpenCV 4.10 with contrib modules, built for `aarch64`
+- GStreamer (good / bad / libav) and Xilinx PPAs (`xilinx-apps/xilinx-drivers`, `ubuntu-xilinx/gstreamer`, `ubuntu-xilinx/sdk`)
+- Cross-compile toolchain (`gcc-aarch64-linux-gnu`)
+
+These images are intended to be consumed by [`colcon-buildx`](https://github.com/smarobix/colcon-buildx). You can also pull and run them directly:
+
 ```bash
-# ROS 2 Jazzy (Ubuntu 24.04)
-docker pull registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:jazzy-base
+docker run --rm --platform linux/arm64 \
+  -v $(pwd):/workspace -w /workspace \
+  sapertuz/smrbx-buildx:kv26-jazzy \
+  bash -c 'source /opt/ros/jazzy/setup.bash && colcon build --merge-install'
 ```
 
-**Commit-specific Images:**
-```bash
-docker pull registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:jazzy-base-a1b2c3d
-```
+## Install trees for `armhf` (Pynq-Z1 / Pynq-Z2)
 
-### Run Interactive Development Container
+The Pynq Dockerfiles (`dockerfiles/pynq-z1/Dockerfile.{jazzy,humble}`) build ROS 2 from source on `arm32v7/ubuntu:jammy`, install into `/opt/ros/<distro>`, and produce an install tree that can be deployed to either Pynq-Z1 or Pynq-Z2. The two distro Dockerfiles share build phases so layer caching works across them where possible.
 
-```bash
-docker run -it --rm \
-  --platform linux/arm64 \
-  -v $(pwd):/workspace \
-  -v /tmp/.X11-unix:/tmp/.X11-unix:rw \
-  -e DISPLAY=$DISPLAY \
-  registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest \
-  bash
-```
+### Scope
 
-## 📋 Available Images
+The `armhf` install trees are scoped to **`ros-base` minus display-related packages**. Concretely:
 
-| Tag | ROS 2 Version | Platform | Description |
-|-----|---------------|----------|-------------|
-| `latest` | Jazzy | ARM64 | Latest stable build from main branch |
-| `jazzy-base` | Jazzy (24.04) | ARM64 | ROS 2 Jazzy with custom OpenCV 4.5.0 |
+- All `ros_base` core: `rclcpp`, `rclpy`, `ros2cli` and its sub-commands, `launch_ros`, `pluginlib`, `class_loader`, the common interface packages (`std_msgs`, `geometry_msgs`, `sensor_msgs`, `nav_msgs`, `action_msgs`, `diagnostic_msgs`, `shape_msgs`, `trajectory_msgs`, `visualization_msgs`)
+- `tf2`, `urdf`, `robot_state_publisher`, `rosbag2`, `sros2`
+- `cv_bridge` and `image_transport` (built against the in-image OpenCV 4.13)
+- A handful of `demo_nodes_*` and `examples_rclcpp_minimal_*` packages for sanity-checking on the board
 
-### What's Included
+Display packages (`rviz2`, `rqt`, `rqt_*`, image viewers) are intentionally excluded. They pull in heavy GUI dependencies and Pynq boards typically run headless. If you need them, build them on top of the install tree.
 
-- **ROS 2 Jazzy/Humble**: Full ROS 2 installation with development tools
-  - **Custom OpenCV 4.10.0**: Built from source with contrib modules for features2d
-  - **Xilinx Dependencies**: GStreamer plugins and drivers for Kria boards
-  - **Cross-compilation Tools**: ARM64 GCC toolchain for native compilation
-  - **Development Tools**: colcon, vcstool, rosdep, cmake, git, etc.
+The RMW is **Cyclone DDS** (`rmw_cyclonedds_cpp`). Zenoh is not in scope yet because of open ARMv7 issues upstream; once those land, Zenoh will be added.
 
-## 🔐 GitLab Container Registry Setup
+### Current artifact and deploy story
 
-### 1. Authentication
+This part is in flight. The Pynq-Z1 / Pynq-Z2 Dockerfiles exist and build cleanly. The CI integration that publishes `/opt/ros/<distro>` as a zip archive per (board, distro) build is being wired up right now. Until that lands, the workflow is:
 
-**Personal Access Token (Recommended):**
-```bash
-# Create token at: https://git.smarobox.de/-/user_settings/personal_access_tokens
-# Scopes: read_registry, write_registry (for pushing)
-export GITLAB_TOKEN="glpat-xxxxxxxxxxxxxxxxxxxx"
-echo $GITLAB_TOKEN | docker login registry.git.smarobox.de -u <your-username> --password-stdin
-```
+1. Build the image locally:
+   ```bash
+   docker buildx build --platform linux/arm/v7 \
+     -f dockerfiles/pynq-z1/Dockerfile.jazzy \
+     -t pynq-jazzy:local dockerfiles/pynq-z1
+   ```
+2. Extract `/opt/ros/jazzy` from a container and zip it.
+3. `rsync` the zip to the board, unpack into `/opt/ros/jazzy`.
 
-**Deploy Tokens (CI/CD):**
-```bash
-# Create at: Project Settings > Repository > Deploy Tokens
-echo $DEPLOY_TOKEN | docker login registry.git.smarobox.de -u <deploy-username> --password-stdin
-```
+Once the CI publishing job lands, steps 1 and 2 collapse into "download the published zip from the registry."
 
-**GitLab CI Token (Automatic):**
-```bash
-# Already available in CI pipelines as $CI_REGISTRY_PASSWORD
-echo $CI_REGISTRY_PASSWORD | docker login -u $CI_REGISTRY_USER --password-stdin $CI_REGISTRY
-```
+### Roadmap
 
-### 2. Configure Docker for Multi-platform
+In rough order:
+
+1. CI job that publishes `<board>-<distro>.zip` (zip of `/opt/ros/<distro>`) on every build.
+2. `.deb` packaging of the install tree so it can be `apt install`'d (instead of unzipped).
+3. A signed APT repository so contributors can `apt-add-repository` and pull updates the normal way.
+4. Zenoh RMW once upstream ARMv7 issues are resolved.
+5. More boards as people ask for them. Raspberry Pi 32-bit is the obvious next candidate; an `armhf` Dockerfile already exists as the starting point.
+
+## Building locally
+
+Register QEMU first if you are on `x86_64`:
 
 ```bash
-# Enable ARM64 emulation on x86_64 hosts
 docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-
-# Verify platform support
-docker buildx inspect default | grep Platforms
 ```
 
-## 💻 Development Workflow
-
-### Option 1: Use Pre-built Images (Recommended)
-
-Instead of building locally for 15+ minutes, use pre-built images:
+Then:
 
 ```bash
-# Pull latest image
-docker pull registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest
+# arm64 Kria image
+docker buildx build --platform linux/arm64 \
+  -f dockerfiles/k26/Dockerfile.jazzy \
+  -t kria-buildx:k26-jazzy dockerfiles/k26
 
-# Run your build in container
-docker run --rm \
-  -v $(pwd):/workspace \
-  -w /workspace \
-  --platform linux/arm64 \
-  registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest \
-  bash -c "source /opt/ros/jazzy/setup.bash && colcon build --symlink-install"
+# armhf Pynq image (slow first time; built from source)
+docker buildx build --platform linux/arm/v7 \
+  -f dockerfiles/pynq-z1/Dockerfile.jazzy \
+  -t pynq-buildx:jazzy dockerfiles/pynq-z1
 ```
 
-### Option 2: Development with Docker Compose
+The Pynq build will take a while (it compiles ROS 2 from source under emulation on `x86_64` hosts).
 
-Create `docker-compose.yml`:
+## Adding a new board
 
-```yaml
-version: '3.8'
-services:
-  ros2-dev:
-    image: registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest
-    platform: linux/arm64
-    volumes:
-      - ./:/workspace
-      - ros2_cache:/root/.ros
-    working_dir: /workspace
-    environment:
-      - ROS_DOMAIN_ID=42
-    stdin_open: true
-    tty: true
-    network_mode: host
+1. Create `dockerfiles/<board>/Dockerfile.<distro>` (and any `extra.repos.<distro>` files needed by `vcs import`). Existing Dockerfiles are good starting points: `k26/` for `arm64` boards with apt-installable ROS, `pynq-z1/` for `armhf` boards that have to build from source.
+2. Add a job in `.gitlab-ci.yml` mirroring an existing `build:k26-*` block. Set `--platform`, the Dockerfile path, the image tag, and the registry cache refs.
+3. Open an MR. We will run a manual pipeline to confirm the image builds.
 
-volumes:
-  ros2_cache:
-```
+If the new board is `arm64` with official ROS apt packages available (Tier 1), copy the K26 path. If it is `armhf` or another Tier 3 architecture, copy the Pynq path.
 
-```bash
-# Start development environment
-docker-compose up -d
-docker-compose exec ros2-dev bash
+## CI
 
-# Inside container
-source /opt/ros/jazzy/setup.bash
-colcon build --symlink-install
-```
+The pipeline is GitLab CI (`.gitlab-ci.yml`). One job per (board, distro) pair, all running `docker buildx build --push` against the registry, with `--cache-from` and `--cache-to` against a `*-buildcache` tag for incremental builds. Triggers: push to `main`, push to `develop`, git tags, manual web triggers. Public CI (and the corresponding public registry) is on the upcoming migration list.
 
-### Option 3: Local Build (Slower)
+## Companion repository
 
-If you need to build locally:
+[`colcon-buildx`](https://github.com/smarobix/colcon-buildx) is the colcon extension that consumes the `arm64` Docker images here. If you want to cross-compile a workspace against a K26 image, that is the tool to use. Once the `armhf` install-tree zips are being published, `colcon-buildx` (or plain `rsync`) is also how you deploy them to a Pynq board.
 
-```bash
-cd kria-ros-cross-compile/
-./build_persistent.sh  # ~15 minutes first time, ~3-5 minutes subsequent
-```
+## License
 
-## 🏗️ CI/CD Pipeline
-
-### Automatic Builds
-
-Images are automatically built when:
-- **Push to main**: Builds and tags as `latest`
-- **Push to develop**: Builds development images
-- **Git tags**: Creates release images
-- **Manual trigger**: Via GitLab web interface
-
-### Build Triggers
-
-```bash
-# Trigger manual build via GitLab CLI
-curl -X POST \
-  -F token=$CI_TRIGGER_TOKEN \
-  -F ref=main \
-  https://git.smarobox.de/api/v4/projects/$PROJECT_ID/trigger/pipeline
-```
-
-### Pipeline Stages
-
-1. **Build Stage**:
-   - Cross-compile ARM64 images using buildx
-   - Cache optimization with registry cache
-   - Multi-Dockerfile support (jazzy, humble, etc.)
-
-2. **Tag Stage**:
-   - Tag main branch builds as `latest`
-   - Create commit-specific tags
-   - Registry cleanup (manual)
-
-### Cache Optimization
-
-The pipeline uses aggressive caching:
-- **Registry Cache**: Build layers cached in GitLab registry
-- **Multi-stage Cache**: Optimized Dockerfile layer caching
-- **Incremental Builds**: Only changed layers rebuilt
-
-## 📦 Usage Examples
-
-### Cross-compile ROS 2 Package
-
-```bash
-# Clone your ROS 2 workspace
-git clone https://your-repo.com/ros2-workspace.git
-cd ros2-workspace
-
-# Build using pre-built container
-docker run --rm \
-  -v $(pwd):/workspace \
-  -w /workspace \
-  --platform linux/arm64 \
-  registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest \
-  bash -c "
-    source /opt/ros/jazzy/setup.bash
-    rosdep install --from-paths src --ignore-src -r -y
-    colcon build --symlink-install --cmake-args -DCMAKE_BUILD_TYPE=Release
-  "
-```
-
-### Deploy to Kria Board
-
-```bash
-# Extract built artifacts
-docker run --rm \
-  -v $(pwd):/workspace \
-  -w /workspace \
-  --platform linux/arm64 \
-  registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest \
-  tar czf kria_deploy.tar.gz install/
-
-# Copy to Kria
-rsync -avz kria_deploy.tar.gz kria-robotics:~/
-ssh kria-robotics 'cd ~ && tar xzf kria_deploy.tar.gz'
-```
-
-### Run Tests in Container
-
-```bash
-docker run --rm \
-  -v $(pwd):/workspace \
-  -w /workspace \
-  --platform linux/arm64 \
-  registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest \
-  bash -c "
-    source install/setup.bash
-    colcon test
-    colcon test-result --verbose
-  "
-```
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-**Image not found:**
-```bash
-# Check if you're authenticated
-docker login registry.git.smarobox.de
-
-# Verify image exists
-docker manifest inspect registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest
-```
-
-**Platform not supported:**
-```bash
-# Enable ARM64 emulation
-docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-
-# Verify qemu is loaded
-ls /proc/sys/fs/binfmt_misc/ | grep qemu
-```
-
-**Build cache issues:**
-```bash
-# Clear local cache
-docker builder prune -a
-
-# Force rebuild without cache
-docker pull registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest --no-cache
-```
-
-**Permission issues:**
-```bash
-# Run with same UID/GID as host
-docker run --rm \
-  -v $(pwd):/workspace \
-  -w /workspace \
-  --user $(id -u):$(id -g) \
-  registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest \
-  bash
-```
-
-### Registry Debugging
-
-```bash
-# List all tags
-curl -H "PRIVATE-TOKEN: $GITLAB_TOKEN" \
-  https://git.smarobox.de/api/v4/projects/$PROJECT_ID/registry/repositories
-
-# Check image layers
-docker manifest inspect registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:latest
-
-# Test registry connectivity
-docker pull hello-world
-docker tag hello-world registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:test
-docker push registry.git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile:test
-```
-
-## 🚀 Performance Comparison
-
-| Method | First Build | Subsequent Builds | Network | Disk Space |
-|--------|-------------|-------------------|---------|------------|
-| Pre-built Images | ~2 minutes | ~30 seconds | High (download) | Low |
-| Local Cross-compile | ~15 minutes | ~3-5 minutes | Low | High |
-| Native Kria Build | ~45 minutes | ~15 minutes | None | Medium |
-
-## 📚 Additional Resources
-
-- [Cross-compilation Documentation](./kria-ros-cross-compile/BUILD_OPTIMIZATION.md)
-- [GitLab Container Registry Docs](https://docs.gitlab.com/ee/user/packages/container_registry/)
-- [Repository Link](https://git.smarobox.de/smarobix/automatica-2025/kria_ros_cross_compile)
-- [Docker Buildx Multi-platform Guide](https://docs.docker.com/buildx/working-with-buildx/)
-- [ROS 2 Cross-compilation Guide](https://docs.ros.org/en/jazzy/How-To-Guides/Cross-compilation.html)
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Test changes with manual pipeline trigger
-4. Commit changes: `git commit -m 'Add amazing feature'`
-5. Push to branch: `git push origin feature/amazing-feature`
-6. Open a Pull Request
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
----
-
-**Questions?** Open an issue or check the [troubleshooting section](#-troubleshooting) above.
+License to be finalized before public release.
