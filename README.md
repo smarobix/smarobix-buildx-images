@@ -1,5 +1,8 @@
 # smarobix-buildx-images
 
+[![Build images](https://github.com/smarobix/smarobix-buildx-images/actions/workflows/build-images.yml/badge.svg)](https://github.com/smarobix/smarobix-buildx-images/actions/workflows/build-images.yml)
+[![Latest release](https://img.shields.io/github/v/release/smarobix/smarobix-buildx-images?include_prereleases&sort=semver)](https://github.com/smarobix/smarobix-buildx-images/releases/latest)
+
 CI pipeline that produces two kinds of artifacts for cross-compiling ROS 2 to embedded ARM boards. First, board-specific Docker images that [`smarobix-colcon-buildx`](https://github.com/smarobix/smarobix-colcon-buildx) consumes as its cross-compile environment. Second, ROS 2 install trees for non-Tier-1 boards where the official buildfarm does not publish binaries, packaged as `.deb` archives.
 
 ## Why this exists
