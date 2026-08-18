@@ -1,0 +1,44 @@
+#!/bin/bash
+# Fix ROS 2 source that predates the GCC 13+ / glibc header cleanups and still
+# relies on transitive includes that no longer happen on Debian trixie (GCC 14).
+#
+# These are applied per file rather than as a global `-include` compiler flag on
+# purpose. Forcing <stdbool.h> into every C translation unit defines `true` and
+# `false` as macros, which breaks third-party code that uses them as ordinary
+# identifiers — cyclonedds bundles an mcpp-derived preprocessor whose
+# src/tools/idlpp/src/system.c uses `true:` and `false:` as goto labels, and it
+# fails to compile with "expected identifier before numeric constant".
+#
+# Each entry is <path-relative-to-src>:<header>. Add to the list when a new
+# Debian release breaks another transitive include; the script is a no-op for
+# files that are absent or already correct, so it stays safe across distros.
+set -eu
+
+SRC="/tmp/ros2_${ROS_DISTRO}/src"
+
+PATCHES="
+ros2/rmw/rmw/include/rmw/time.h:stdbool.h
+"
+
+for entry in $PATCHES; do
+    file="${SRC}/${entry%%:*}"
+    header="${entry##*:}"
+
+    if [ ! -f "$file" ]; then
+        echo "patch-sources: skip (not present): ${entry%%:*}"
+        continue
+    fi
+    if grep -q "^#include <${header}>" "$file"; then
+        echo "patch-sources: skip (already includes ${header}): ${entry%%:*}"
+        continue
+    fi
+
+    # Insert immediately after the first #include so the new header lands inside
+    # any include guard rather than ahead of it.
+    awk -v hdr="$header" '
+        { print }
+        /^#include/ && !done { print "#include <" hdr ">"; done = 1 }
+    ' "$file" > "$file.patched"
+    mv "$file.patched" "$file"
+    echo "patch-sources: added <${header}> to ${entry%%:*}"
+done

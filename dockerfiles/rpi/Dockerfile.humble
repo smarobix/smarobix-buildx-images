@@ -1,0 +1,185 @@
+# Raspberry Pi OS / Debian — ROS 2 Humble built from source.
+#
+# Nothing in this image is Raspberry-Pi-specific: the base is stock Debian and
+# no Raspberry Pi apt repository or firmware is involved. It is named for the
+# runtime it is tested against (Raspberry Pi OS), but the install tree it
+# produces runs on any Debian of the same suite and architecture.
+#
+# Raspberry Pi OS is Debian, and packages.ros.org publishes no ros-<distro>-*
+# binaries for any Debian suite (the bookworm/trixie dists carry bootstrap tools
+# only), so BOTH arm64 and armhf take the source-build path here — unlike the
+# Tier-1 K26 images, which apt-install ROS.
+#
+# SUITE and PY_VER come from the workflow matrix and must agree:
+#   trixie   -> 3.13   (Raspberry Pi OS 13 / Debian 13)
+#   bookworm -> 3.11   (Raspberry Pi OS 12 / Debian 12)
+#
+# The architecture is selected by buildx --platform against the multi-arch
+# base manifest, so one Dockerfile covers both:
+#   linux/arm64   aarch64  — Pi 3/4/5 and Zero 2 W on a 64-bit OS
+#   linux/arm/v7  ARMv7-A  — Pi 2/3/4/5 and Zero 2 W on a 32-bit OS.
+#                            NOT Pi 1 / Zero / Zero W, which are ARMv6.
+ARG SUITE=trixie
+FROM debian:${SUITE}-slim
+
+ARG SUITE=trixie
+ARG PY_VER=3.13
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_DISTRO=humble
+
+# --- Locale and base tools (single layer)
+# Debian has no `universe` component, so there is no add-apt-repository step.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    locales curl gnupg2 ca-certificates && \
+    sed -i 's/^# *\(en_US.UTF-8\)/\1/' /etc/locale.gen && \
+    locale-gen && \
+    update-locale LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && \
+    rm -rf /var/lib/apt/lists/*
+
+ENV LANG=en_US.UTF-8
+ENV LC_ALL=en_US.UTF-8
+
+# --- Build dependencies
+# OpenCV comes from Debian (libopencv-dev) rather than being built from source
+# as on Pynq: the same packages are what apt installs on the board, so cv_bridge
+# links against the runtime's own OpenCV and the .deb can express a real
+# Depends: on it. It also removes the slowest layer under QEMU.
+#
+# pip needs --break-system-packages: bookworm and trixie both mark the system
+# interpreter externally-managed (PEP 668), and colcon/vcstool/rosdep are not
+# packaged by Debian. empy is pinned to 3.3.4 — rosidl's generators are
+# incompatible with the 4.x API that Debian ships.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git wget unzip build-essential cmake g++ gcc pkg-config apt-utils \
+    python3-dev python3-pip python3-setuptools python3-numpy \
+    libeigen3-dev libtinyxml2-dev libssl-dev libasio-dev libboost-all-dev \
+    libacl1-dev liblttng-ust-dev libopencv-dev libyaml-dev \
+    libcurl4-openssl-dev libsqlite3-dev libzstd-dev && \
+    pip3 install --break-system-packages --no-cache-dir \
+        colcon-common-extensions vcstool rosdep lark "empy==3.3.4" \
+        catkin_pkg lxml pytest && \
+    rm -rf /var/lib/apt/lists/*
+
+# --- Prepare ROS 2 source tree
+RUN rosdep init && rosdep update
+
+COPY extra.repos.humble /tmp/extra.repos
+
+RUN mkdir -p /tmp/ros2_${ROS_DISTRO}/src && \
+    cd /tmp/ros2_${ROS_DISTRO} && \
+    vcs import --input https://raw.githubusercontent.com/ros2/ros2/${ROS_DISTRO}/ros2.repos src && \
+    vcs import --input /tmp/extra.repos src
+
+# Apply per-file fixes for source that assumes pre-GCC-13 transitive includes.
+COPY patch-sources /usr/local/bin/patch-sources
+RUN chmod +x /usr/local/bin/patch-sources && patch-sources
+
+# rosdep has thin coverage for debian:${SUITE}; unresolved keys are expected and
+# the packages that matter are already installed above, hence the `|| true`.
+RUN cd /tmp/ros2_${ROS_DISTRO} && \
+    rosdep install --from-paths src --ignore-src --rosdistro ${ROS_DISTRO} -y \
+    --skip-keys "fastcdr rti-connext-dds-6.0.1 urdfdom_headers" || true
+
+# Helper script to keep colcon invocations DRY. Kept as a real file rather than
+# generated inline: it carries quoted compiler flags that do not survive printf.
+COPY ros-build /usr/local/bin/ros-build
+RUN chmod +x /usr/local/bin/ros-build
+
+# ============================================================
+# Phase 1: ros_base equivalent
+#   - rclcpp/rclpy + all rcl/rmw core deps
+#   - all common interfaces (std_msgs, geometry_msgs, sensor_msgs, nav_msgs, etc.)
+#   - ros2cli + all sub-commands (topic, node, service, param, action, component)
+#   - launch + launch_ros
+#   - pluginlib + class_loader
+# ============================================================
+RUN ros-build \
+        rclcpp \
+        rclpy \
+        ros2cli \
+        launch_ros \
+        pluginlib \
+        class_loader \
+        std_msgs \
+        geometry_msgs \
+        sensor_msgs \
+        nav_msgs \
+        action_msgs \
+        diagnostic_msgs \
+        shape_msgs \
+        trajectory_msgs \
+        visualization_msgs
+
+# ============================================================
+# Phase 2: RMW layer
+# ============================================================
+RUN ros-build rmw_cyclonedds_cpp
+
+# ============================================================
+# Phase 3: Remaining ros_base packages
+# ============================================================
+RUN ros-build \
+        ros2topic \
+        ros2node \
+        ros2service \
+        ros2param \
+        ros2action \
+        ros2run \
+        ros2launch \
+        ros2component \
+        ros2pkg \
+        ros2interface \
+        ros2doctor \
+        ros2lifecycle \
+        ros2multicast \
+        ros2plugin \
+        launch_xml \
+        launch_yaml \
+        launch_testing \
+        launch_testing_ros \
+        tf2_ros \
+        tf2_geometry_msgs \
+        tf2_sensor_msgs \
+        tf2_eigen \
+        tf2_tools \
+        kdl_parser \
+        urdf \
+        robot_state_publisher \
+        ros2bag \
+        rosbag2_transport \
+        sros2 \
+        std_srvs \
+        stereo_msgs \
+        actionlib_msgs \
+        rclcpp_action \
+        rclcpp_lifecycle
+
+# ============================================================
+# Phase 4: Extra packages — edit freely, phases 1-3 stay cached
+# ============================================================
+RUN ros-build \
+        cv_bridge \
+        image_transport \
+        demo_nodes_cpp \
+        examples_rclcpp_minimal_client \
+        examples_rclcpp_minimal_publisher \
+        examples_rclcpp_minimal_service \
+        examples_rclcpp_minimal_subscriber \
+        examples_rclcpp_minimal_timer
+
+# Clean up source tree and build helper
+RUN rm -rf /tmp/ros2_${ROS_DISTRO} /tmp/extra.repos /usr/local/bin/ros-build
+
+# --- Set ROS environment variables
+ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
+ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib
+ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python${PY_VER}/site-packages
+ENV ROS_DISTRO=${ROS_DISTRO}
+ENV ROS_VERSION=2
+ENV ROS_PYTHON_VERSION=3
+
+WORKDIR /root
+RUN echo "source /opt/ros/${ROS_DISTRO}/setup.bash" >> /root/.bashrc

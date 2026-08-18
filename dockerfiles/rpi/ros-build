@@ -1,0 +1,33 @@
+#!/bin/bash
+# Build the named ROS 2 packages (and their dependencies) into /opt/ros/$ROS_DISTRO.
+#
+# Toolchain incompatibilities between newer Debian compilers and older ROS
+# source are handled per file by ./patch-sources, not by global compiler flags
+# here — see the comment in that script for why.
+set -e
+
+cd "/tmp/ros2_${ROS_DISTRO}"
+
+# Cap parallelism by memory, not just by core count. Some ROS 2 translation
+# units (demo_nodes_cpp's allocator_tutorial_pmr.cpp is the usual casualty) need
+# well over a gigabyte in cc1plus, so one job per core gets the compiler
+# OOM-killed on any machine with less than ~2 GB per core — which is most CI
+# runners and most laptops. MAKEFLAGS pins each package to a single make job so
+# that colcon's worker count is the whole story rather than being multiplied by
+# per-package make parallelism.
+CORES=$(nproc)
+MEM_GB=$(awk '/MemTotal/ { printf "%d", $2 / 1024 / 1024 }' /proc/meminfo)
+WORKERS=$(( MEM_GB / 2 ))
+[ "$WORKERS" -lt 1 ] && WORKERS=1
+[ "$WORKERS" -gt "$CORES" ] && WORKERS=$CORES
+
+echo "ros-build: ${CORES} cores, ${MEM_GB} GB RAM -> ${WORKERS} parallel workers"
+export MAKEFLAGS="-j1"
+
+colcon build \
+    --merge-install --install-base "/opt/ros/${ROS_DISTRO}" \
+    --parallel-workers "$WORKERS" \
+    --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
+    --packages-up-to "$@"
+
+rm -rf "/tmp/ros2_${ROS_DISTRO}/build" "/tmp/ros2_${ROS_DISTRO}/log"
