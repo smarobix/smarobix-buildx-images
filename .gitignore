@@ -1,1 +1,7 @@
 dockerfiles/.DS_Store
+
+# local AI assistant / editor state
+.claude/
+.cursor/
+.aider*
+.github/copilot-instructions.md
