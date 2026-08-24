@@ -24,8 +24,12 @@ FROM debian:${SUITE}-slim
 
 ARG SUITE=trixie
 ARG PY_VER=3.13
+# Empty means "size the build from this machine's memory"; CI sets it, because
+# several matrix jobs share one runner. See dockerfiles/rpi/ros-build.
+ARG ROS_BUILD_WORKERS=
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_BUILD_WORKERS=${ROS_BUILD_WORKERS}
 ENV ROS_DISTRO=jazzy
 
 # --- Locale and base tools (single layer)
@@ -62,7 +66,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     rm -rf /var/lib/apt/lists/*
 
 # --- Prepare ROS 2 source tree
-RUN rosdep init && rosdep update
+# raw.githubusercontent.com answers HTTP 429 when several builds fetch rosdistro
+# at once, which is routine with a 12-entry matrix, so retry with backoff rather
+# than losing a multi-hour build to a transient rate limit.
+RUN rosdep init && \
+    ok=0; \
+    for i in 1 2 3 4 5; do \
+        if rosdep update; then ok=1; break; fi; \
+        echo "rosdep update failed (attempt $i/5), retrying in $((i * 30))s"; \
+        sleep $((i * 30)); \
+    done; \
+    [ "$ok" = 1 ]
 
 COPY extra.repos.jazzy /tmp/extra.repos
 
@@ -176,7 +190,12 @@ ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
 ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
 ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib
 ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
-ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python${PY_VER}/site-packages
+# Debian patches setuptools so that `setup.py install --prefix=X` lands in
+# X/local/lib/pythonX.Y/dist-packages rather than X/lib/pythonX.Y/site-packages.
+# Humble's tree ends up split across both (ros2cli in one, rclpy in the other),
+# so both must be on the path. Sourcing setup.bash gets this right by itself;
+# this ENV is what makes the image usable without sourcing.
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python${PY_VER}/site-packages:/opt/ros/${ROS_DISTRO}/local/lib/python${PY_VER}/dist-packages
 ENV ROS_DISTRO=${ROS_DISTRO}
 ENV ROS_VERSION=2
 ENV ROS_PYTHON_VERSION=3

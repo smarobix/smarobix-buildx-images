@@ -24,8 +24,12 @@ FROM debian:${SUITE}-slim
 
 ARG SUITE=trixie
 ARG PY_VER=3.13
+# Empty means "size the build from this machine's memory"; CI sets it, because
+# several matrix jobs share one runner. See dockerfiles/rpi/ros-build.
+ARG ROS_BUILD_WORKERS=
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV ROS_BUILD_WORKERS=${ROS_BUILD_WORKERS}
 ENV ROS_DISTRO=humble
 
 # --- Locale and base tools (single layer)
@@ -55,14 +59,25 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3-dev python3-pip python3-setuptools python3-numpy \
     libeigen3-dev libtinyxml2-dev libssl-dev libasio-dev libboost-all-dev \
     libacl1-dev liblttng-ust-dev libopencv-dev libyaml-dev \
-    libcurl4-openssl-dev libsqlite3-dev libzstd-dev && \
+    libcurl4-openssl-dev libsqlite3-dev libzstd-dev \
+    python3-netifaces && \
     pip3 install --break-system-packages --no-cache-dir \
         colcon-common-extensions vcstool rosdep lark "empy==3.3.4" \
         catkin_pkg lxml pytest && \
     rm -rf /var/lib/apt/lists/*
 
 # --- Prepare ROS 2 source tree
-RUN rosdep init && rosdep update
+# raw.githubusercontent.com answers HTTP 429 when several builds fetch rosdistro
+# at once, which is routine with a 12-entry matrix, so retry with backoff rather
+# than losing a multi-hour build to a transient rate limit.
+RUN rosdep init && \
+    ok=0; \
+    for i in 1 2 3 4 5; do \
+        if rosdep update; then ok=1; break; fi; \
+        echo "rosdep update failed (attempt $i/5), retrying in $((i * 30))s"; \
+        sleep $((i * 30)); \
+    done; \
+    [ "$ok" = 1 ]
 
 COPY extra.repos.humble /tmp/extra.repos
 
@@ -176,7 +191,12 @@ ENV AMENT_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
 ENV COLCON_PREFIX_PATH=/opt/ros/${ROS_DISTRO}
 ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib
 ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
-ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python${PY_VER}/site-packages
+# Debian patches setuptools so that `setup.py install --prefix=X` lands in
+# X/local/lib/pythonX.Y/dist-packages rather than X/lib/pythonX.Y/site-packages.
+# Humble's tree ends up split across both (ros2cli in one, rclpy in the other),
+# so both must be on the path. Sourcing setup.bash gets this right by itself;
+# this ENV is what makes the image usable without sourcing.
+ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python${PY_VER}/site-packages:/opt/ros/${ROS_DISTRO}/local/lib/python${PY_VER}/dist-packages
 ENV ROS_DISTRO=${ROS_DISTRO}
 ENV ROS_VERSION=2
 ENV ROS_PYTHON_VERSION=3
