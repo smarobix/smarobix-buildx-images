@@ -13,7 +13,12 @@ permissions:
 jobs:
   build:
     name: ${{ matrix.image }}-${{ matrix.distro }}
-    runs-on: self-hosted
+    # arm64 targets build on the native arm64 runner. Emulated arm64
+    # (qemu-aarch64) silently loses files from the colcon merge-install prefix
+    # partway through a large source build, which surfaces as a dependent
+    # package failing to find an already-installed library such as rcutils.
+    # armv7 emulation is unaffected and stays on the x86_64 workstations.
+    runs-on: ${{ matrix.runs_on }}
     permissions:
       contents: read
       packages: write
@@ -25,18 +30,22 @@ jobs:
             image: k26
             distro: jazzy
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
           - board_dir: k26
             image: k26
             distro: humble
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
           - board_dir: pynq-z1
             image: pynq-v3.1.1
             distro: jazzy
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
           - board_dir: pynq-z1
             image: pynq-v3.1.1
             distro: humble
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
           # Raspberry Pi OS / Debian. Debian publishes no ROS binaries for any
           # suite, so arm64 builds from source too. suite/py_ver must agree.
           # The image name carries the ISA baseline rather than a board model:
@@ -46,48 +55,56 @@ jobs:
             image: rpi-arm64-trixie
             distro: jazzy
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
             suite: trixie
             py_ver: "3.13"
           - board_dir: rpi
             image: rpi-arm64-trixie
             distro: humble
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
             suite: trixie
             py_ver: "3.13"
           - board_dir: rpi
             image: rpi-armv7-trixie
             distro: jazzy
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             suite: trixie
             py_ver: "3.13"
           - board_dir: rpi
             image: rpi-armv7-trixie
             distro: humble
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             suite: trixie
             py_ver: "3.13"
           - board_dir: rpi
             image: rpi-arm64-bookworm
             distro: jazzy
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
             suite: bookworm
             py_ver: "3.11"
           - board_dir: rpi
             image: rpi-arm64-bookworm
             distro: humble
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
             suite: bookworm
             py_ver: "3.11"
           - board_dir: rpi
             image: rpi-armv7-bookworm
             distro: jazzy
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             suite: bookworm
             py_ver: "3.11"
           - board_dir: rpi
             image: rpi-armv7-bookworm
             distro: humble
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             suite: bookworm
             py_ver: "3.11"
     steps:
@@ -144,7 +161,9 @@ jobs:
     name: Package ${{ matrix.image }}-${{ matrix.distro }}
     needs: build
     if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: self-hosted
+    # Matches the build job: the .deb is assembled by running the image, so run
+    # arm64 images on the arm64 runner rather than under emulation.
+    runs-on: ${{ matrix.runs_on }}
     permissions:
       contents: read
       packages: read
@@ -172,6 +191,7 @@ jobs:
             pkg: pynq-v3.1.1
             distro: jazzy
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             deb_arch: armhf
             target: PYNQ v3.1.1 (Ubuntu 22.04)
             board: Xilinx Zynq-7020 boards (Pynq-Z1 / Pynq-Z2)
@@ -183,6 +203,7 @@ jobs:
             pkg: pynq-v3.1.1
             distro: humble
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             deb_arch: armhf
             target: PYNQ v3.1.1 (Ubuntu 22.04)
             board: Xilinx Zynq-7020 boards (Pynq-Z1 / Pynq-Z2)
@@ -194,6 +215,7 @@ jobs:
             pkg: rpi-trixie
             distro: jazzy
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
             deb_arch: arm64
             target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
             board: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
@@ -205,6 +227,7 @@ jobs:
             pkg: rpi-trixie
             distro: humble
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
             deb_arch: arm64
             target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
             board: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
@@ -216,6 +239,7 @@ jobs:
             pkg: rpi-trixie
             distro: jazzy
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             deb_arch: armhf
             target: Raspberry Pi OS 13 / Debian 13 (trixie), armhf
             board: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
@@ -227,6 +251,7 @@ jobs:
             pkg: rpi-trixie
             distro: humble
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             deb_arch: armhf
             target: Raspberry Pi OS 13 / Debian 13 (trixie), armhf
             board: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
@@ -238,6 +263,7 @@ jobs:
             pkg: rpi-bookworm
             distro: jazzy
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
             deb_arch: arm64
             target: Raspberry Pi OS 12 / Debian 12 (bookworm), arm64
             board: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
@@ -249,6 +275,7 @@ jobs:
             pkg: rpi-bookworm
             distro: humble
             platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
             deb_arch: arm64
             target: Raspberry Pi OS 12 / Debian 12 (bookworm), arm64
             board: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
@@ -260,6 +287,7 @@ jobs:
             pkg: rpi-bookworm
             distro: jazzy
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             deb_arch: armhf
             target: Raspberry Pi OS 12 / Debian 12 (bookworm), armhf
             board: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
@@ -271,6 +299,7 @@ jobs:
             pkg: rpi-bookworm
             distro: humble
             platform: linux/arm/v7
+            runs_on: [self-hosted, X64]
             deb_arch: armhf
             target: Raspberry Pi OS 12 / Debian 12 (bookworm), armhf
             board: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
