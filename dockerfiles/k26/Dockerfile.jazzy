@@ -27,9 +27,19 @@ RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | \
     tee /etc/apt/sources.list.d/ros2.list > /dev/null
 
 # --- Add Xilinx PPAs
-RUN add-apt-repository -y ppa:xilinx-apps/xilinx-drivers && \
-    add-apt-repository -y ppa:ubuntu-xilinx/gstreamer && \
-    add-apt-repository -y ppa:ubuntu-xilinx/sdk && \
+# Retried: add-apt-repository fetches each PPA's signing key from Launchpad,
+# which intermittently answers HTTP 500 with GPGKeyTemporarilyNotFoundError and
+# fails the whole build. Observed on k26-jazzy while k26-humble passed the same
+# step on the same runner minutes earlier, so it is server-side and transient.
+RUN for ppa in xilinx-apps/xilinx-drivers ubuntu-xilinx/gstreamer ubuntu-xilinx/sdk; do \
+        ok=0; \
+        for i in 1 2 3 4 5; do \
+            if add-apt-repository -y "ppa:$ppa"; then ok=1; break; fi; \
+            echo "add-apt-repository ppa:$ppa failed (attempt $i/5), retrying in $((i * 20))s"; \
+            sleep $((i * 20)); \
+        done; \
+        [ "$ok" = 1 ] || exit 1; \
+    done && \
     apt-get update && rm -rf /var/lib/apt/lists/*
 
 # --- Install ROS and core development tools
