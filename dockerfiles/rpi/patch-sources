@@ -104,3 +104,37 @@ PYEOF
         exit 1
     fi
 fi
+
+# ---------------------------------------------------------------------------
+# 3. Humble's mcap_vendor builds the vendored mcap library with -Werror
+#
+# bookworm's GCC 12 emits a false -Wmaybe-uninitialized on mcap's
+# intervaltree.hpp, and -Werror turns it into a build failure:
+#
+#   mcap/intervaltree.hpp:79:17: error: '...IntervalTree<...>::center' may be
+#   used uninitialized [-Werror=maybe-uninitialized]
+#   cc1plus: all warnings being treated as errors
+#
+# trixie's GCC 14 does not warn here, so this only bites bookworm. Note this is
+# the opposite direction to the pybind11 fix above: there the newer Python was
+# the problem, here it is the older compiler.
+#
+# Upstream already resolved this in Jazzy by dropping -Werror from the same
+# line, so this aligns Humble with what Jazzy ships rather than inventing a
+# workaround. Warnings are still reported, they just stop failing the build.
+# The block does not match Jazzy, which has no -Werror to remove.
+# ---------------------------------------------------------------------------
+MCAP_CMAKE="${SRC}/ros2/rosbag2/mcap_vendor/CMakeLists.txt"
+
+if [ ! -f "$MCAP_CMAKE" ]; then
+    echo "patch-sources: skip (not present): ros2/rosbag2/mcap_vendor/CMakeLists.txt"
+elif ! grep -q -- "-Wpedantic -Werror" "$MCAP_CMAKE"; then
+    echo "patch-sources: skip (mcap_vendor does not force -Werror): mcap_vendor"
+else
+    sed -i 's/-Wall -Wextra -Wpedantic -Werror/-Wall -Wextra -Wpedantic/' "$MCAP_CMAKE"
+    if grep -q -- "-Wpedantic -Werror" "$MCAP_CMAKE"; then
+        echo "patch-sources: FAILED to drop -Werror from mcap_vendor" >&2
+        exit 1
+    fi
+    echo "patch-sources: dropped -Werror from mcap_vendor (matches Jazzy upstream)"
+fi
