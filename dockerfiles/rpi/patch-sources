@@ -1,0 +1,140 @@
+#!/bin/bash
+# Fix ROS 2 source that predates the toolchains and Python versions shipped by
+# Debian bookworm (Python 3.11, GCC 12) and trixie (Python 3.13, GCC 14).
+#
+# Two kinds of fix live here. Both are no-ops when the target is absent or
+# already correct, so the same script runs for every suite and distro.
+set -eu
+
+SRC="/tmp/ros2_${ROS_DISTRO}/src"
+
+# ---------------------------------------------------------------------------
+# 1. Missing includes
+#
+# GCC 13+ stopped providing some headers transitively. Applied per file rather
+# than as a global `-include` compiler flag on purpose: forcing <stdbool.h>
+# into every C translation unit defines `true` and `false` as macros, which
+# breaks third-party code that uses them as ordinary identifiers — cyclonedds
+# bundles an mcpp-derived preprocessor whose src/tools/idlpp/src/system.c uses
+# `true:` and `false:` as goto labels, and it then fails to compile with
+# "expected identifier before numeric constant".
+#
+# Each entry is <path-relative-to-src>:<header>.
+# ---------------------------------------------------------------------------
+PATCHES="
+ros2/rmw/rmw/include/rmw/time.h:stdbool.h
+"
+
+for entry in $PATCHES; do
+    file="${SRC}/${entry%%:*}"
+    header="${entry##*:}"
+
+    if [ ! -f "$file" ]; then
+        echo "patch-sources: skip (not present): ${entry%%:*}"
+        continue
+    fi
+    if grep -q "^#include <${header}>" "$file"; then
+        echo "patch-sources: skip (already includes ${header}): ${entry%%:*}"
+        continue
+    fi
+
+    # Insert after the first #include so the header lands inside any include
+    # guard rather than ahead of it.
+    awk -v hdr="$header" '
+        { print }
+        /^#include/ && !done { print "#include <" hdr ">"; done = 1 }
+    ' "$file" > "$file.patched"
+    mv "$file.patched" "$file"
+    echo "patch-sources: added <${header}> to ${entry%%:*}"
+done
+
+# ---------------------------------------------------------------------------
+# 2. Humble's vendored pybind11 is too old for Debian's Python
+#
+# Humble pins pybind11 v2.9.1, which predates Python 3.11 making PyFrameObject
+# an opaque type. rclpy then fails to compile with
+#   "invalid use of incomplete type 'PyFrameObject' {aka 'struct _frame'}"
+# on BOTH bookworm (3.11) and trixie (3.13) — 3.11 is already past the break.
+# pybind11 gained 3.11 support in 2.10 and 3.13 support in 2.13, so v2.13.6
+# covers every suite we target.
+#
+# The vendor package also applies a Windows-only Py_DEBUG patch unconditionally
+# (it is not guarded by if(WIN32)). That patch is written against the 2.9.1
+# tree and will not apply to 2.13.6, so it has to go as well; it is irrelevant
+# to a Linux build and the underlying issue is fixed upstream.
+#
+# Jazzy's pybind11_vendor has a different structure (VCS_VERSION v2.11.1) and
+# builds fine on 3.13, so this block does not match and does not touch it.
+# ---------------------------------------------------------------------------
+PYBIND_CMAKE="${SRC}/ros2/pybind11_vendor/CMakeLists.txt"
+OLD_PYBIND_SHA="ffa346860b306c9bbfb341aed9c14c067751feb8"
+NEW_PYBIND_SHA="a2e59f0e7065404b44dfe92a28aca47ba1378dc4"   # v2.13.6
+
+if [ ! -f "$PYBIND_CMAKE" ]; then
+    echo "patch-sources: skip (not present): ros2/pybind11_vendor/CMakeLists.txt"
+elif ! grep -q "$OLD_PYBIND_SHA" "$PYBIND_CMAKE"; then
+    echo "patch-sources: skip (pybind11 not pinned to 2.9.1): pybind11_vendor"
+else
+    python3 - "$PYBIND_CMAKE" "$OLD_PYBIND_SHA" "$NEW_PYBIND_SHA" <<'PYEOF'
+import re
+import sys
+
+path, old_sha, new_sha = sys.argv[1], sys.argv[2], sys.argv[3]
+text = open(path).read()
+
+text = text.replace(f"GIT_TAG {old_sha}", f"GIT_TAG {new_sha}")
+text = re.sub(r"#\s*v2\.9\.1", "# v2.13.6", text)
+
+# Drop the unconditional Windows Py_DEBUG patch: it targets the 2.9.1 tree and
+# `git apply` fails against 2.13.6, taking the whole build down with it.
+text = re.sub(
+    r"^[ \t]*PATCH_COMMAND\b.*?(?=^[ \t]*\)[ \t]*$)",
+    "",
+    text,
+    flags=re.S | re.M,
+)
+
+open(path, "w").write(text)
+PYEOF
+
+    if grep -q "$NEW_PYBIND_SHA" "$PYBIND_CMAKE" && ! grep -q "PATCH_COMMAND" "$PYBIND_CMAKE"; then
+        echo "patch-sources: bumped pybind11_vendor to v2.13.6 and dropped its 2.9.1 Windows patch"
+    else
+        echo "patch-sources: FAILED to patch pybind11_vendor" >&2
+        exit 1
+    fi
+fi
+
+# ---------------------------------------------------------------------------
+# 3. Humble's mcap_vendor builds the vendored mcap library with -Werror
+#
+# bookworm's GCC 12 emits a false -Wmaybe-uninitialized on mcap's
+# intervaltree.hpp, and -Werror turns it into a build failure:
+#
+#   mcap/intervaltree.hpp:79:17: error: '...IntervalTree<...>::center' may be
+#   used uninitialized [-Werror=maybe-uninitialized]
+#   cc1plus: all warnings being treated as errors
+#
+# trixie's GCC 14 does not warn here, so this only bites bookworm. Note this is
+# the opposite direction to the pybind11 fix above: there the newer Python was
+# the problem, here it is the older compiler.
+#
+# Upstream already resolved this in Jazzy by dropping -Werror from the same
+# line, so this aligns Humble with what Jazzy ships rather than inventing a
+# workaround. Warnings are still reported, they just stop failing the build.
+# The block does not match Jazzy, which has no -Werror to remove.
+# ---------------------------------------------------------------------------
+MCAP_CMAKE="${SRC}/ros2/rosbag2/mcap_vendor/CMakeLists.txt"
+
+if [ ! -f "$MCAP_CMAKE" ]; then
+    echo "patch-sources: skip (not present): ros2/rosbag2/mcap_vendor/CMakeLists.txt"
+elif ! grep -q -- "-Wpedantic -Werror" "$MCAP_CMAKE"; then
+    echo "patch-sources: skip (mcap_vendor does not force -Werror): mcap_vendor"
+else
+    sed -i 's/-Wall -Wextra -Wpedantic -Werror/-Wall -Wextra -Wpedantic/' "$MCAP_CMAKE"
+    if grep -q -- "-Wpedantic -Werror" "$MCAP_CMAKE"; then
+        echo "patch-sources: FAILED to drop -Werror from mcap_vendor" >&2
+        exit 1
+    fi
+    echo "patch-sources: dropped -Werror from mcap_vendor (matches Jazzy upstream)"
+fi
