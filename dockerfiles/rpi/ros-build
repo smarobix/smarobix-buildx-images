@@ -34,10 +34,32 @@ fi
 
 export MAKEFLAGS="-j1"
 
-colcon build \
+# Retried, because colcon's merge-install prefix is a shared mutable directory
+# and concurrent installs race. pkg_resources walks every sys.path entry when it
+# is imported, so any tool that pulls it in (vcstool does) can observe a package
+# mid-install and die on a half-written egg-info:
+#
+#   FileNotFoundError: .../rosidl_adapter-4.6.9-py3.11.egg-info/PKG-INFO
+#
+# It is timing dependent -- the same job passes on one run and fails on the next.
+# A retry is effective rather than merely hopeful here: build/ is only removed
+# after a SUCCESSFUL colcon invocation (see below), so a retry resumes with all
+# previously built packages intact and re-runs just the few that were aborted.
+attempt=1
+max_attempts=3
+until colcon build \
     --merge-install --install-base "/opt/ros/${ROS_DISTRO}" \
     --parallel-workers "$WORKERS" \
     --cmake-args -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTING=OFF \
     --packages-up-to "$@"
+do
+    if [ "$attempt" -ge "$max_attempts" ]; then
+        echo "ros-build: colcon failed after ${max_attempts} attempts, giving up"
+        exit 1
+    fi
+    echo "ros-build: colcon attempt ${attempt}/${max_attempts} failed; retrying (build/ kept, so finished packages are skipped)"
+    attempt=$((attempt + 1))
+    sleep 10
+done
 
 rm -rf "/tmp/ros2_${ROS_DISTRO}/build" "/tmp/ros2_${ROS_DISTRO}/log"
