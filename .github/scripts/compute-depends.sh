@@ -68,9 +68,17 @@ fi
 # ldconfig reports /lib/... but on a usrmerge system dpkg only knows the file as
 # /usr/lib/..., and the soname is a symlink to the versioned file the package
 # actually ships.
+# Snapshot the linker cache once rather than per soname. Two reasons: it is
+# hundreds of times fewer processes, and piping `ldconfig -p` into an awk that
+# exits on first match makes ldconfig die of SIGPIPE. Under `set -o pipefail`
+# that surfaces as exit 141 and kills the script -- and whether it happens is a
+# timing race, so it passed on trixie and failed on bookworm purely because the
+# caches are different sizes.
+ldconfig -p > /tmp/ldcache.txt
+
 : > /tmp/external-libs.txt
 for so in "${EXTERNAL[@]}"; do
-    path=$(ldconfig -p | awk -v s="$so" '$1 == s { print $NF; exit }')
+    path=$(awk -v s="$so" '$1 == s && !found { print $NF; found = 1 }' /tmp/ldcache.txt)
     [ -n "$path" ] && realpath "$path" >> /tmp/external-libs.txt
 done
 sort -u -o /tmp/external-libs.txt /tmp/external-libs.txt
