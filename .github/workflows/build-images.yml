@@ -225,7 +225,12 @@ jobs:
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.repo }}:${{ steps.meta.outputs.tag }}
           cache-from: type=registry,ref=${{ steps.meta.outputs.cache_ref }}
-          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0},mode=max', steps.meta.outputs.cache_ref) || '' }}
+          # ignore-error: the cache export and the image push run in parallel.
+          # On a cold rebuild over the build host's slow uplink, GHCR rejected
+          # a cache layer upload (400) after ~12 min, and BuildKit cancelled the
+          # finished image push with it. A missing cache only costs the next
+          # build time; a missing image is a failed release.
+          cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0},mode=max,ignore-error=true', steps.meta.outputs.cache_ref) || '' }}
           labels: |
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
