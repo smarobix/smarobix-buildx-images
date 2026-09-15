@@ -20,6 +20,7 @@ For `arm64` boards running **Ubuntu** (Tier 1) the official binaries already exi
 | Kria K26 | `arm64` | Humble, Jazzy | Cross-compile Docker image | Published |
 | Pynq-Z1 / Pynq-Z2 | `armhf` (Cortex-A9, Zynq-7020) | Humble, Jazzy | Cross-compile Docker image + `.deb` of `/opt/ros/<distro>` | Published |
 | Raspberry Pi / Debian | `arm64` and `armhf` (ARMv7) | Humble, Jazzy | Docker image + `.deb` of `/opt/ros/<distro>` | New |
+| Kria K26 (KV260 / KR260), Raspberry Pi 5 on **Yocto** | `arm64` | Jazzy | Native dev container built by bitbake from the board image's configuration (`k26-yocto`, `rpi5-yocto`) | Published (built by hand) |
 
 Pynq-Z1 and Pynq-Z2 share the same Zynq-7020 SoC, so a single set of Dockerfiles under `dockerfiles/pynq-z1/` produces an install tree that runs on either board.
 
@@ -50,6 +51,28 @@ docker run --rm --platform linux/arm64 \
   ghcr.io/smarobix/smarobix-buildx-images:k26-jazzy \
   bash -c 'source /opt/ros/jazzy/setup.bash && colcon build --merge-install'
 ```
+
+## Images for boards running Yocto / meta-ros
+
+These are for boards running a **Yocto/meta-ros** image, not Ubuntu: binaries link
+against the meta-ros sysroot and won't run on the Ubuntu images above, and vice versa.
+Nothing in them comes from Ubuntu or another distro. The kas configuration behind them is
+in [`yocto/`](yocto/README.md).
+
+### Dev containers (`k26-yocto`, `rpi5-yocto`)
+
+An aarch64 OCI image of the board's own userspace, plus compilers and `-dev` packages.
+Bitbake builds it from the same configuration as the board image (recipe
+`ros-dev-container` in `yocto/meta-smrbx`), and colcon-buildx builds in it natively:
+
+```bash
+colcon buildx --method docker --docker-platform linux/arm64 \
+  --docker-image ghcr.io/smarobix/smarobix-buildx-images:k26-yocto-jazzy
+```
+
+They are a 215 MB (K26) and 232 MB (Pi 5) download. Bitbake builds them outside CI, and
+they are pushed by hand. [`yocto/README.md`](yocto/README.md) covers building and
+loading them, and every recipe choice.
 
 ## Install trees for `armhf` (Pynq-Z1 / Pynq-Z2)
 
