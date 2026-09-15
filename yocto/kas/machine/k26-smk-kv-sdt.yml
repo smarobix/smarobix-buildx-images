@@ -1,0 +1,64 @@
+# AMD Kria KV260 Vision AI Starter Kit (K26 SOM + KV260 carrier).
+#
+# The SDT (System Device Tree) machine is used rather than the XSCT one:
+# k26-smk-kr sets XILINX_WITH_ESW="xsct", and XSCT is an x86_64-only AMD
+# binary. The SDT flow downloads prebuilt system-device-tree artifacts and
+# processes them with lopper (Python), so it builds on an aarch64 host.
+header:
+  version: 14
+
+machine: "k26-smk-kv-sdt"
+
+repos:
+  meta-arm:
+    url: "https://git.yoctoproject.org/meta-arm"
+    branch: "scarthgap"
+    commit: "045eb74bd9abe7d9ccf365a2417e440ce83bcbb0"
+    path: "layers/meta-arm"
+    layers:
+      meta-arm:
+      meta-arm-toolchain:
+
+  meta-openamp:
+    url: "https://github.com/OpenAMP/meta-openamp.git"
+    branch: "scarthgap"
+    commit: "0c8b6ce232d0937286fe6643fe3662e170b96a95"
+    path: "layers/meta-openamp"
+
+  # AMD release branch, not the community "scarthgap" branch: meta-kria
+  # rel-v2025.2 inherits amd_spi_image.bbclass (kria-qspi), which only exists on
+  # the rel-v* branches. rel-v2025.2 still declares LAYERSERIES_COMPAT=scarthgap,
+  # so it stays compatible with the poky commit meta-ros pins.
+  meta-xilinx:
+    url: "https://github.com/Xilinx/meta-xilinx.git"
+    branch: "rel-v2025.2"
+    commit: "658a3a888dceec7e2d30f32166fc009f4f91f294"
+    path: "layers/meta-xilinx"
+    layers:
+      meta-xilinx-core:
+      meta-xilinx-standalone:
+      meta-xilinx-standalone-sdt:
+      meta-xilinx-multimedia:
+      meta-microblaze:
+
+  meta-kria:
+    url: "https://github.com/Xilinx/meta-kria.git"
+    branch: "rel-v2025.2"
+    commit: "177d4b91fcd0a1f6031856f23124b61c25471555"
+    path: "layers/meta-kria"
+
+local_conf_header:
+  kria-firmware-deploy: |
+    # meta-ros's ros2 DISTRO builds into tmp-glibc; meta-xilinx's firmware
+    # multiconfigs use DISTRO=xilinx-standalone and build into tmp-<mc>. The
+    # machine conf derives the firmware location from the *consumer's* TMPDIR:
+    #     FSBL_DEPLOY_DIR = "${TMPDIR}-<mc>/deploy/images/${MACHINE}"
+    # which resolves to tmp-glibc-<mc>, while the producer actually writes to
+    # tmp-<mc>. The firmware builds fine; fsbl/pmufw then fail to find it:
+    #     objcopy: could not create temporary file whilst copying
+    #     .../tmp-glibc-k26-smk-kv-sdt-cortexa53-fsbl/.../fsbl-....elf
+    # Point the consumers at where the producers actually write.
+    # :forcevariable -- machine.conf is parsed AFTER local.conf and assigns
+    # these with a plain "=", so an ordinary local.conf value is overwritten.
+    FSBL_DEPLOY_DIR:forcevariable = "${TOPDIR}/tmp-k26-smk-kv-sdt-cortexa53-fsbl/deploy/images/${MACHINE}"
+    PMU_FIRMWARE_DEPLOY_DIR:forcevariable = "${TOPDIR}/tmp-k26-smk-kv-sdt-microblaze-pmu/deploy/images/${MACHINE}"
