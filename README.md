@@ -1,7 +1,7 @@
 # smarobix-buildx-images
 
 [![Build images](https://github.com/smarobix/smarobix-buildx-images/actions/workflows/build-images.yml/badge.svg)](https://github.com/smarobix/smarobix-buildx-images/actions/workflows/build-images.yml)
-[![Latest release](https://img.shields.io/github/v/release/smarobix/smarobix-buildx-images?include_prereleases&sort=semver)](https://github.com/smarobix/smarobix-buildx-images/releases/latest)
+[![Latest release](https://img.shields.io/github/v/release/smarobix/smarobix-buildx-images?include_prereleases&sort=semver&filter=v*)](https://github.com/smarobix/smarobix-buildx-images/releases/latest)
 
 CI pipeline that produces two kinds of artifacts for cross-compiling ROS 2 to embedded ARM boards. First, board-specific Docker images that [`smarobix-colcon-buildx`](https://github.com/smarobix/smarobix-colcon-buildx) consumes as its cross-compile environment. Second, ROS 2 install trees for non-Tier-1 boards where the official buildfarm does not publish binaries, packaged as `.deb` archives.
 
@@ -21,6 +21,7 @@ For `arm64` boards running **Ubuntu** (Tier 1) the official binaries already exi
 | Pynq-Z1 / Pynq-Z2 | `armhf` (Cortex-A9, Zynq-7020) | Humble, Jazzy | Cross-compile Docker image + `.deb` of `/opt/ros/<distro>` | Published |
 | Raspberry Pi / Debian | `arm64` and `armhf` (ARMv7) | Humble, Jazzy | Docker image + `.deb` of `/opt/ros/<distro>` | New |
 | Kria K26 (KV260 / KR260), Raspberry Pi 5 on **Yocto** | `arm64` | Jazzy | Native dev container built by bitbake from the board image's configuration (`k26-yocto`, `rpi5-yocto`) | Published (built by hand) |
+| Kria K26 (KV260 / KR260), Raspberry Pi 5 on **Yocto** | `arm64` host, `aarch64` target | Jazzy | Cross-compile image: the meta-ros Yocto SDK on top of the dev container (`k26-oesdk`, `rpi5-oesdk`) | Published |
 
 Pynq-Z1 and Pynq-Z2 share the same Zynq-7020 SoC, so a single set of Dockerfiles under `dockerfiles/pynq-z1/` produces an install tree that runs on either board.
 
@@ -73,6 +74,74 @@ colcon buildx --method docker --docker-platform linux/arm64 \
 They are a 215 MB (K26) and 232 MB (Pi 5) download. Bitbake builds them outside CI, and
 they are pushed by hand. [`yocto/README.md`](yocto/README.md) covers building and
 loading them, and every recipe choice.
+
+### Cross-compile image from the SDK (`k26-oesdk`, `rpi5-oesdk`)
+
+`dockerfiles/oesdk/Dockerfile` installs a meta-ros Yocto SDK on top of the board's dev
+container. It works differently from every other image here. The others run *as* the
+target architecture and build natively (under QEMU where the host differs). This one
+carries a cross toolchain plus the target sysroot and runs on the **host** architecture.
+colcon-buildx recognises it by its labels:
+
+| Label | Value |
+|---|---|
+| `org.smarobix.buildx.kind` | `oe-sdk` |
+| `org.smarobix.buildx.env-setup` | `/opt/ros-sdk/environment-setup-cortexa72-cortexa53-oe-linux` |
+| `org.smarobix.buildx.target-platform` | `linux/arm64` |
+| `org.smarobix.buildx.ros-distro` | `jazzy` |
+
+It then skips `--platform`, sources the SDK environment, and applies its toolchain
+wrapper:
+
+```bash
+colcon buildx --method docker --docker-image ghcr.io/smarobix/smarobix-buildx-images:k26-oesdk-jazzy
+colcon buildx --method docker --docker-image ghcr.io/smarobix/smarobix-buildx-images:rpi5-oesdk-jazzy
+```
+
+Verified on 2026-09-15 on an arm64 host: built on their dev containers, both images build a
+workspace with an interface package and an `rclcpp` node that depends on it in 15 s cold
+and 8 s incremental. Neither contains a package manager (no apt, dpkg, rpm or opkg), and
+`/etc/issue` names the meta-ros distro. The same SDK on an Ubuntu base produced binaries
+that ran unmodified on a KV260 booted from the matching Yocto image; nothing has run on a
+Pi 5 board yet.
+
+Things to know:
+
+- **Built in CI from a release.** The SDK installer is a bitbake output, so it is
+  published as an asset of the
+  [`yocto-sdk-jazzy-2026.09.15`](https://github.com/smarobix/smarobix-buildx-images/releases/tag/yocto-sdk-jazzy-2026.09.15)
+  release. The workflow downloads it, checks its sha256 and builds on the published dev
+  container. A new SDK means a new release and new matrix values.
+- **`linux/arm64` only.** The SDK's host tools are aarch64 binaries, so the image runs
+  natively on Apple Silicon and on arm64 Linux. An `x86_64` variant would need a second
+  SDK built with `SDKMACHINE = "x86_64"`, and an x86_64 base.
+- **The SDK must include `ros-sdk-env`.** Build it from `ros2-image-sdktest` with
+  `TOOLCHAIN_HOST_TASK:append = " nativesdk-ros-sdk-env"`. Nothing in meta-ros pulls that
+  recipe in by itself, and without it the SDK can't configure a ROS workspace.
+- **Ninja, not make.** The SDK ships `ninja`, `cmake`, `pkg-config`, `python3` and
+  `colcon`, but not `make`, so colcon-buildx builds with the SDK's `ninja`.
+- **Size:** two layers: the dev container's and the SDK's. That is about
+  830 MB to download for the K26 (215 + 617 MB) and 950 MB for the Pi 5 (232 + 717 MB), and
+  only the SDK layer if you already have the dev container. The SDKs are built without debug packages
+  (`SDKIMAGE_FEATURES = "dev-pkgs"`). With them, the K26 image was about 10 GB.
+- **No Python message bindings.** The SDK has no `rosidl_generator_py`, so interface
+  packages get C/C++ bindings only. The dev container generates them.
+
+To build it yourself, pass the directory that holds the installer as the `sdk` build
+context. It is bind-mounted during the build, so the installer never ends up in a layer:
+
+```bash
+docker buildx build --platform linux/arm64 --load \
+  --build-context sdk=/path/to/installer/dir \
+  --build-arg BASE_IMAGE=ghcr.io/smarobix/smarobix-buildx-images:k26-yocto-jazzy \
+  --build-arg SDK_INSTALLER=oecore-ros2-image-sdktest-jazzy-aarch64-cortexa72-cortexa53-k26-smk-kv-sdt-toolchain-nodistro.0.sh \
+  --build-arg SDK_ENV_SETUP=environment-setup-cortexa72-cortexa53-oe-linux \
+  -t k26-oesdk:jazzy dockerfiles/oesdk
+```
+
+`SDK_ENV_SETUP` names the SDK's environment script, which follows the target CPU tune:
+`cortexa72-cortexa53` for the Kria K26, `cortexa76` for the Raspberry Pi 5 (with
+`rpi5-yocto-jazzy` as the base). The labels are derived from it.
 
 ## Install trees for `armhf` (Pynq-Z1 / Pynq-Z2)
 

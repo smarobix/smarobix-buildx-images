@@ -107,6 +107,33 @@ jobs:
             runs_on: [self-hosted, X64]
             suite: bookworm
             py_ver: "3.11"
+          # Yocto / meta-ros: the SDK packaged as a cross-build image, on top
+          # of the board's bitbake-built dev container (base_image). The SDK
+          # installer is a bitbake output, published as an asset of the
+          # sdk_release release and pinned by checksum; the bitbake builds
+          # themselves run outside CI (yocto/README.md).
+          - board_dir: oesdk
+            dockerfile: Dockerfile
+            image: k26-oesdk
+            distro: jazzy
+            platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
+            base_image: k26-yocto-jazzy
+            sdk_release: yocto-sdk-jazzy-2026.09.15
+            sdk_installer: oecore-ros2-image-sdktest-jazzy-aarch64-cortexa72-cortexa53-k26-smk-kv-sdt-toolchain-nodistro.0.sh
+            sdk_sha256: 99529c2bdc3a212585fcd57916865e81178d06e7d3be7e7d396a46a453213335
+            sdk_env_setup: environment-setup-cortexa72-cortexa53-oe-linux
+          - board_dir: oesdk
+            dockerfile: Dockerfile
+            image: rpi5-oesdk
+            distro: jazzy
+            platform: linux/arm64
+            runs_on: [self-hosted, ARM64]
+            base_image: rpi5-yocto-jazzy
+            sdk_release: yocto-sdk-jazzy-2026.09.15
+            sdk_installer: oecore-ros2-image-sdktest-jazzy-aarch64-cortexa76-raspberrypi5-toolchain-nodistro.0.sh
+            sdk_sha256: a2e7e4dc2a57d9073bdaa67571fce682a112fe6a97039312e917cf517a0dd4b4
+            sdk_env_setup: environment-setup-cortexa76-oe-linux
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -139,15 +166,27 @@ jobs:
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           echo "cache_ref=${REPO}:${BASE}-buildcache" >> "$GITHUB_OUTPUT"
 
+      - name: Download the Yocto SDK installer
+        if: ${{ matrix.sdk_installer }}
+        run: |
+          mkdir -p sdk
+          curl -fsSL -o "sdk/${{ matrix.sdk_installer }}" \
+            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${{ matrix.sdk_release }}/${{ matrix.sdk_installer }}"
+          echo "${{ matrix.sdk_sha256 }}  sdk/${{ matrix.sdk_installer }}" | sha256sum -c -
+
       - name: Build and push
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: dockerfiles/${{ matrix.board_dir }}
-          file: dockerfiles/${{ matrix.board_dir }}/Dockerfile.${{ matrix.distro }}
+          file: dockerfiles/${{ matrix.board_dir }}/${{ matrix.dockerfile || format('Dockerfile.{0}', matrix.distro) }}
           platforms: ${{ matrix.platform }}
+          build-contexts: ${{ matrix.sdk_installer && 'sdk=sdk' || '' }}
           build-args: |
             ${{ matrix.suite && format('SUITE={0}', matrix.suite) || '' }}
             ${{ matrix.py_ver && format('PY_VER={0}', matrix.py_ver) || '' }}
+            ${{ matrix.base_image && format('BASE_IMAGE={0}:{1}', steps.meta.outputs.repo, matrix.base_image) || '' }}
+            ${{ matrix.sdk_installer && format('SDK_INSTALLER={0}', matrix.sdk_installer) || '' }}
+            ${{ matrix.sdk_env_setup && format('SDK_ENV_SETUP={0}', matrix.sdk_env_setup) || '' }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.repo }}:${{ steps.meta.outputs.tag }}
           cache-from: type=registry,ref=${{ steps.meta.outputs.cache_ref }}
