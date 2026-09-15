@@ -27,6 +27,8 @@ Pynq-Z1 and Pynq-Z2 share the same Zynq-7020 SoC, so a single set of Dockerfiles
 
 Published images live on GHCR under [`ghcr.io/smarobix/smarobix-buildx-images`](https://github.com/smarobix/smarobix-buildx-images/pkgs/container/smarobix-buildx-images). A Docker Hub mirror at `sapertuz/smarobix-buildx` is updated manually for users who prefer that registry.
 
+Pull requests build only the images whose `dockerfiles/<board>/` directory they change, or all of them if the workflow itself changes; the rest are skipped and report success. Pushes to `main` and `develop`, tags and manual runs build everything.
+
 ## Cross-compile Docker images (`arm64`)
 
 The Kria K26 images are built from `dockerfiles/k26/Dockerfile.{jazzy,humble}` and pushed on every push to `main`, every push to `develop`, and on manual workflow runs.
