@@ -5,3 +5,6 @@ dockerfiles/.DS_Store
 .cursor/
 .aider*
 .github/copilot-instructions.md
+
+# Yocto SDK installers staged for dockerfiles/k26-oesdk (over a gigabyte each)
+/sdk/
