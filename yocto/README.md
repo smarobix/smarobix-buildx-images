@@ -3,7 +3,7 @@
 The configuration behind the Yocto side of this repository: the board images for
 the KV260, KR260 and Raspberry Pi 5, the meta-ros SDKs that `dockerfiles/oesdk`
 packages, and a small local layer. Everything here was built and tested on an arm64
-Linux host (`smrbx-thor-0`) in September 2026.
+Linux host in September 2026.
 
 The images built from it are published, so you only need this to rebuild them:
 

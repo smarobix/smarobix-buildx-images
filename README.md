@@ -19,7 +19,7 @@ For `arm64` boards running **Ubuntu** (Tier 1) the official binaries already exi
 |---|---|---|---|---|
 | Kria K26 | `arm64` | Humble, Jazzy | Cross-compile Docker image | Published |
 | Pynq-Z1 / Pynq-Z2 | `armhf` (Cortex-A9, Zynq-7020) | Humble, Jazzy | Cross-compile Docker image + `.deb` of `/opt/ros/<distro>` | Published |
-| Raspberry Pi / Debian | `arm64` and `armhf` (ARMv7) | Humble, Jazzy | Docker image + `.deb` of `/opt/ros/<distro>` | New |
+| Raspberry Pi / Debian | `arm64` and `armhf` (ARMv7) | Humble, Jazzy | Docker image + `.deb` of `/opt/ros/<distro>` | Published |
 | Kria K26 (KV260 / KR260), Raspberry Pi 5 on **Yocto** | `arm64` | Jazzy | Native dev container built by bitbake from the board image's configuration (`k26-yocto`, `rpi5-yocto`) | Published (built by hand) |
 | Kria K26 (KV260 / KR260), Raspberry Pi 5 on **Yocto** | `arm64` host, `aarch64` target | Jazzy | Cross-compile image: the meta-ros Yocto SDK on top of the dev container (`k26-oesdk`, `rpi5-oesdk`) | Published |
 
@@ -344,4 +344,4 @@ Image tags published to GHCR are rolling: `:<image>-<distro>` from `main`, `:<im
 
 ## License
 
-License to be finalized before public release.
+Apache License 2.0; the published images carry `org.opencontainers.image.licenses=Apache-2.0`.
