@@ -1,4 +1,7 @@
-FROM arm64v8/ros:humble-ros-base
+# Pinned by digest, bumped by Dependabot: an upstream base moving invalidates
+# every cached layer, and pull requests cannot refresh the registry cache, so a
+# silent bump turns the next unrelated pull request into a source rebuild.
+FROM arm64v8/ros:humble-ros-base@sha256:885431a2148d74a581fbedece3c09bc9cf17e02b11723e9557593e181089c87c
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=humble

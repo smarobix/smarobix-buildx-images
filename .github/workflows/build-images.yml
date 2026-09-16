@@ -19,6 +19,11 @@ jobs:
     # package failing to find an already-installed library such as rcutils.
     # armv7 emulation is unaffected and stays on the x86_64 workstations.
     runs-on: ${{ matrix.runs_on }}
+    # A hung emulated build otherwise holds a runner for GitHub's 6 h default:
+    # pynq-v3.1.1-jazzy once hung in a ros-build step that normally takes ~33 min,
+    # until that limit killed it. A cold armv7 source build takes ~2.5 h, so 4 h
+    # leaves room for a real build while cutting a hang much sooner.
+    timeout-minutes: 240
     permissions:
       contents: read
       packages: write

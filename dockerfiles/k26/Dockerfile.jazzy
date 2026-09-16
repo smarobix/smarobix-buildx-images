@@ -1,4 +1,7 @@
-FROM arm64v8/ubuntu:noble
+# Pinned by digest, bumped by Dependabot: an upstream base moving invalidates
+# every cached layer, and pull requests cannot refresh the registry cache, so a
+# silent bump turns the next unrelated pull request into a source rebuild.
+FROM arm64v8/ubuntu:noble@sha256:19c941a00b0e535b060ff25558108a11a2c093f241d68f374899064e079cd725
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=jazzy

@@ -19,8 +19,15 @@
 #   linux/arm64   aarch64  — Pi 3/4/5 and Zero 2 W on a 64-bit OS
 #   linux/arm/v7  ARMv7-A  — Pi 2/3/4/5 and Zero 2 W on a 32-bit OS.
 #                            NOT Pi 1 / Zero / Zero W, which are ARMv6.
+# Pinned by digest, bumped by Dependabot: an upstream base moving invalidates
+# every cached layer, and pull requests cannot refresh the registry cache, so a
+# silent bump turns the next unrelated pull request into a source rebuild. One
+# stage per suite, because a digest cannot be pasted onto debian:${SUITE}-slim;
+# SUITE picks between them, and BuildKit only pulls the one it needs.
 ARG SUITE=trixie
-FROM debian:${SUITE}-slim
+FROM debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS base-trixie
+FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS base-bookworm
+FROM base-${SUITE}
 
 ARG SUITE=trixie
 ARG PY_VER=3.13
