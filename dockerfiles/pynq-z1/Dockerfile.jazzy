@@ -1,4 +1,7 @@
-FROM arm32v7/ubuntu:jammy
+# Pinned by digest, bumped by Dependabot: an upstream base moving invalidates
+# every cached layer, and pull requests cannot refresh the registry cache, so a
+# silent bump turns the next unrelated pull request into a source rebuild.
+FROM arm32v7/ubuntu:jammy@sha256:f3f54b94eac58a93aaae1a9005fc3139f6d835c9ce34281ce8ef5bccf436fe19
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=jazzy
