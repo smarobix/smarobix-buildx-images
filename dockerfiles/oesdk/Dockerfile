@@ -1,4 +1,6 @@
 # syntax=docker/dockerfile:1
+# SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+# SPDX-License-Identifier: Apache-2.0
 #
 # Cross-build image built from a meta-ros Yocto SDK, for any board meta-ros
 # builds for (tested: Kria K26 KV260/KR260 and Raspberry Pi 5).

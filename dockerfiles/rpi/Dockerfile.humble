@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+# SPDX-License-Identifier: Apache-2.0
+
 # Raspberry Pi OS / Debian — ROS 2 Humble built from source.
 #
 # Nothing in this image is Raspberry-Pi-specific: the base is stock Debian and

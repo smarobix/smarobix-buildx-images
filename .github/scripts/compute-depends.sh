@@ -1,4 +1,7 @@
 #!/bin/bash
+# SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+# SPDX-License-Identifier: Apache-2.0
+
 # Print a Debian Depends: field for the ROS install tree at /opt/ros/$DISTRO.
 #
 # Runs *inside* the built image, where the tree's own libraries resolve and the

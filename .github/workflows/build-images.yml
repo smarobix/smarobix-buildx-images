@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+# SPDX-License-Identifier: Apache-2.0
+
 name: Build images
 
 on:
@@ -236,10 +239,11 @@ jobs:
           # finished image push with it. A missing cache only costs the next
           # build time; a missing image is a failed release.
           cache-to: ${{ github.event_name != 'pull_request' && format('type=registry,ref={0},mode=max,ignore-error=true', steps.meta.outputs.cache_ref) || '' }}
+          # No licenses label: one SPDX expression can't cover the base OS, ROS 2 and OpenCV inside.
           labels: |
             org.opencontainers.image.source=${{ github.event.repository.html_url }}
             org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.licenses=Apache-2.0
+            org.opencontainers.image.vendor=SMAROBIX GmbH
 
   package:
     name: Package ${{ matrix.image }}-${{ matrix.distro }}
