@@ -268,6 +268,8 @@ jobs:
           # Recommends are pulled in by `apt install ./file.deb` but not by
           # `dpkg -i`, and neither surfaces the RMW choice or the extra step
           # needed to build packages on the board — so say it at install time.
+          # ros-dev-tools in Suggests comes from the ROS 2 apt source, which the
+          # user adds first; the page linked below has the commands.
           cat > "$STAGE/DEBIAN/postinst" <<EOF
           #!/bin/sh
           set -e
@@ -278,14 +280,14 @@ jobs:
 
             source /opt/ros/${{ matrix.distro }}/setup.bash
 
-          Recommended RMW for this board:
+          Recommended RMW (not set by this package):
             export RMW_IMPLEMENTATION=${{ matrix.rmw }}
 
-          To build ROS packages on this board (not needed just to run nodes):
+          To build ROS packages on this board (not needed just to run nodes),
+          add the ROS 2 apt source with the ros2-apt-source package, then:
+            sudo apt update
             sudo apt install ${{ matrix.suggests }}
-            pip install --break-system-packages 'empy==3.3.4' colcon-common-extensions
-
-          Debian ships empy 4.x, whose API rosidl does not support, hence the pin.
+          Step by step: https://smarobix.github.io/smarobix-buildx-images/how-to/build-on-the-board/
 
           MSG
           fi

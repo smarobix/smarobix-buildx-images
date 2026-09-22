@@ -64,6 +64,7 @@ class RealFile(unittest.TestCase):
         for e in matrix:
             self.assertIn(e["deb_arch"], ("arm64", "armhf"))
             self.assertNotIn(",", e["suggests"])
+            self.assertNotIn("python3-pip", e["suggests"])
 
     def test_matrix_is_one_line_of_json(self):
         for job in ("build", "package"):
@@ -71,6 +72,9 @@ class RealFile(unittest.TestCase):
             self.assertEqual(code, 0)
             self.assertEqual(out.count("\n"), 1)
             self.assertIn("include", json.loads(out))
+
+    def test_one_rmw_everywhere(self):
+        self.assertEqual({t["rmw"] for t in self.cfg["targets"]}, {"rmw_cyclonedds_cpp"})
 
     def test_oe_sdk_runs_on_the_host(self):
         for t in self.cfg["targets"]:
