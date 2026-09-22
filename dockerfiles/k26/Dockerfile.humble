@@ -3,7 +3,8 @@
 
 # Pinned by digest, bumped by Dependabot: an upstream base moving invalidates
 # every cached layer, and pull requests cannot refresh the registry cache, so a
-# silent bump turns the next unrelated pull request into a source rebuild.
+# silent bump turns the next pull request that builds this image into a cold
+# rebuild.
 FROM arm64v8/ros:humble-ros-base@sha256:885431a2148d74a581fbedece3c09bc9cf17e02b11723e9557593e181089c87c
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -20,14 +21,15 @@ ENV LC_ALL=en_US.UTF-8
 # --- [1] Enable universe (required for ROS)
 RUN add-apt-repository universe
 
-# --- [2] Install ROS 2 apt source via fixed version
+# --- [2] Install the ROS 2 apt source with the ros2-apt-source package (the
+# official method), taking its latest release at build time
 RUN export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}') && \
     curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb" && \
     dpkg -i /tmp/ros2-apt-source.deb && \
     rm /tmp/ros2-apt-source.deb && \
     apt-get update
 
-# --- [3] Add Xilinx and Lely PPAs
+# --- [3] Add Xilinx PPAs
 # Retried: add-apt-repository fetches each PPA's signing key from Launchpad,
 # which intermittently answers HTTP 500 with GPGKeyTemporarilyNotFoundError and
 # fails the whole build. Observed on k26-jazzy while k26-humble passed the same

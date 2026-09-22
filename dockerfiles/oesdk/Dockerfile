@@ -3,7 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Cross-build image built from a meta-ros Yocto SDK, for any board meta-ros
-# builds for (tested: Kria K26 KV260/KR260 and Raspberry Pi 5).
+# builds for. Which of them have run on hardware is recorded at
+# https://smarobix.github.io/smarobix-buildx-images/reference/tested-hardware/
 #
 # Unlike the other images in this repo, this one does not build natively as the
 # target architecture. It carries a cross toolchain plus the target sysroot, and
@@ -29,13 +30,17 @@
 #     docker buildx build --platform linux/arm64 --load \
 #       --build-context sdk=/path/to/installer/dir \
 #       --build-arg BASE_IMAGE=ghcr.io/smarobix/smarobix-buildx-images:k26-yocto-jazzy \
-#       --build-arg SDK_INSTALLER=oecore-ros2-image-sdktest-...-toolchain-nodistro.0.sh \
+#       --build-arg SDK_INSTALLER=oecore-ros2-image-sdktest-jazzy-aarch64-cortexa72-cortexa53-k26-smk-kv-sdt-toolchain-nodistro.0.sh \
 #       --build-arg SDK_ENV_SETUP=environment-setup-cortexa72-cortexa53-oe-linux \
 #       -t k26-oesdk:jazzy dockerfiles/oesdk
 # SDK_ENV_SETUP names the SDK's environment script, which follows the target
 # tune: cortexa72-cortexa53 for the Kria K26, cortexa76 for the Raspberry Pi 5.
 # CI downloads the installers from this repository's releases.
 
+# BASE_IMAGE is the board's dev container (k26-yocto-jazzy or
+# rpi5-yocto-jazzy). Unlike the other images' bases it stays on a tag rather
+# than a digest: it is our own image, and it moves only when we rebuild it
+# with bitbake.
 ARG BASE_IMAGE
 FROM ${BASE_IMAGE}
 
