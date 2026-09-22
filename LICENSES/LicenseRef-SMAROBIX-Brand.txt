@@ -1,0 +1,16 @@
+SMAROBIX brand assets
+
+Copyright 2025-2026 SMAROBIX GmbH. All rights reserved.
+
+The SMAROBIX name, the block mark and the wordmark are trademarks of SMAROBIX
+GmbH. They are included in this repository so that it can build its own
+documentation site, and they are not covered by the Apache License 2.0 that the
+rest of this repository grants for its source.
+
+You may redistribute them only as part of an unmodified copy of this
+documentation site. You may not use them to identify your own product, service
+or fork, or in any way that suggests SMAROBIX endorses it. Remove them from a
+fork you publish under your own name.
+
+Nothing here limits nominative fair use: naming SMAROBIX, or this project, in
+prose needs no permission.

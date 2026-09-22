@@ -1,0 +1,8 @@
+# Python packages for building the documentation site (tools/build-site.sh).
+# Pinned because the site is rebuilt on a schedule, where an upgrade would
+# break the build with no change of our own to point at. mkdocs-material 9.x
+# needs mkdocs 1.6.x and does not work with MkDocs 2.0. PyYAML is for
+# tools/targets.py.
+mkdocs==1.6.1
+mkdocs-material==9.7.7
+PyYAML==6.0.3

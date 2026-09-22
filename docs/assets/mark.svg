@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1920">
+  <defs>
+    <clipPath id="blk"><path fill-rule="evenodd" d="M1527.75,0H392.25C175.62,0,0,175.62,0,392.25v1135.5C0,1744.38,175.62,1920,392.25,1920h1135.5c216.63,0,392.25-175.62,392.25-392.25V392.25C1920,175.62,1744.38,0,1527.75,0ZM1469.12,1469.12H450.88V450.88h1018.23v1018.23Z"/></clipPath>
+    <linearGradient id="base" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F286DA"/><stop offset="1" stop-color="#FF6634"/>
+    </linearGradient>
+    <radialGradient id="creamTR" cx="0.86" cy="0.14" r="0.5">
+      <stop offset="0" stop-color="#ECEDDF" stop-opacity="0.95"/><stop offset="1" stop-color="#ECEDDF" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="creamBL" cx="0.14" cy="0.86" r="0.5">
+      <stop offset="0" stop-color="#ECEDDF" stop-opacity="0.95"/><stop offset="1" stop-color="#ECEDDF" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+  <g clip-path="url(#blk)">
+    <rect width="1920" height="1920" fill="url(#base)"/>
+    <rect width="1920" height="1920" fill="url(#creamTR)"/>
+    <rect width="1920" height="1920" fill="url(#creamBL)"/>
+  </g>
+</svg>

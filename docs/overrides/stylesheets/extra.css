@@ -1,0 +1,534 @@
+
+/* Smarobix brand colors for Material for MkDocs */
+
+/* Primary color (used for header, nav highlights, links) */
+:root {
+  --md-primary-fg-color:        #F286DA;
+  --md-primary-fg-color--light: #F59EE1;
+  --md-primary-fg-color--dark:  #d964c4;
+  /* Everything Material draws ON the primary surface — tab labels, header
+     icons, the search field and its placeholder. The header used to be the pink
+     primary, so this was charcoal; now that the bar is charcoal (see the header
+     block below) it has to flip to cream, or the tabs render charcoal-on-
+     charcoal and disappear. */
+  --md-primary-bg-color:        #ECEDDF;
+  --md-primary-bg-color--light: #ECEDDFb3;
+}
+
+/* Accent color (used for hover states, active elements) */
+:root {
+  --md-accent-fg-color:         #FF6634;
+  --md-accent-fg-color--transparent: #FF663420;
+  --md-accent-bg-color:         #ffffff;
+  --md-accent-bg-color--light:  #ffffffb3;
+}
+
+/* Slate scheme overrides — use Charcoal instead of the default blue-grey */
+[data-md-color-scheme="slate"] {
+  --md-default-bg-color:        #1A1A1A;
+  --md-default-bg-color--light: #242524;
+
+  /* Hairline. The brand has no grey, so every rule, border and gridline on the
+     dark surface is CREAM at low alpha rather than a desaturated grey. */
+  --smrbx-hairline:        rgba(236, 237, 223, 0.14);
+  --smrbx-hairline-strong: rgba(236, 237, 223, 0.35);
+}
+
+/* ── Header: charcoal, with the brand gradient as a thin bottom rule ──
+   The header and the tabs bar are both charcoal and sit flush, so they read as
+   one band; the gradient therefore belongs at the bottom of the *pair*, not
+   between them. `.md-tabs` is hidden below Material's tabs breakpoint, so the
+   rule is drawn on the header as well and suppressed again once the tabs bar
+   is actually on screen — otherwise the rule disappears on narrow viewports. */
+.md-header,
+.md-tabs {
+  background-color: #1A1A1A;
+}
+
+/* Material pairs .md-nav__source's --md-primary-fg-color--dark background with
+   --md-primary-bg-color, which this theme sets to cream: 2.70:1, a failure at
+   any size. The ink is fixed here rather than by changing that variable,
+   because seven Material rules read it - including the .md-header rule above,
+   where cream on charcoal is correct at 14.71:1. Charcoal on the dark primary
+   is 5.45:1. Only visible when repo_url is configured, which is why it went
+   unseen. */
+.md-nav__source {
+  color: #1A1A1A;
+}
+
+.md-header::after,
+.md-tabs::after {
+  content: "";
+  display: block;
+  height: 3px;
+  background: linear-gradient(90deg, #F286DA 0%, #FF6634 100%);
+}
+
+@media screen and (min-width: 76.25em) {
+  .md-header::after {
+    display: none;
+  }
+}
+
+/* ── SMAROBIX Insights lockup: block mark + mixed-weight wordmark ── */
+/* The `.md-header__button` half of the selector is a specificity match, not
+   decoration: Material sets `.md-header__button:not([hidden]){display:inline-block}`
+   at (0,2,0), which outranks a bare `.smarobix-brand` (0,1,0). Without it the
+   container never becomes a flex box, `gap` is ignored, and the three parts are
+   spaced by the HTML whitespace between the tags instead — about 3px, and
+   uneven, because a word space is not a layout unit. */
+.md-header__button.smarobix-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 0.7rem;
+  text-decoration: none;
+  margin-right: 0.75rem;
+  flex-shrink: 0;
+}
+
+/* What must match across the lockup is the VISIBLE cap height, not the box
+   height — the two assets fill their viewBoxes differently, so equal `height`
+   would not make them look equal. The mark's artwork reaches its own edges, but
+   the wordmark's letters occupy only 87.72% of its box (measured: 100 ink rows
+   of a 114-row render), with the remainder as padding above and below.
+
+   So the cap height is declared once and each box is derived from it. The value
+   is Syne's cap height at the descriptor's 1.35rem, which is what makes
+   "SMAROBIX" and "Insights" read as one line of type.
+
+   Both assets carry their own colour: the mark is the gradient variant and the
+   wordmark is the WHITE variant, so neither is recoloured here. An earlier pass
+   inverted a black wordmark with a CSS filter, which the brand kit rules out -
+   it ships a variant per ground, and the right one is picked by file. */
+.md-header__button.smarobix-brand {
+  --smrbx-lockup-cap: 0.883rem;
+
+  /* Optical correction, deliberately NOT folded into the cap value above. The
+     mark is a frame twice over — a 53% centre cutout and a ~20% corner radius —
+     so its ink is a small fraction of its bounding box and it reads smaller than
+     the letters when its box matches their cap height exactly. Sized up until it
+     looks equal; the cap value stays the measured truth. */
+  --smrbx-lockup-mark: calc(var(--smrbx-lockup-cap) * 1.15);
+}
+
+/* The extra height is centred on the cap band — (1.15-1)/1.15/2 — so the mark
+   grows equally above the cap line and below the baseline instead of hanging off
+   the top. */
+.smarobix-brand__mark {
+  height: var(--smrbx-lockup-mark);
+  transform: translateY(6.52%);
+}
+
+.smarobix-brand__wordmark {
+  height: calc(var(--smrbx-lockup-cap) / 0.8772);
+}
+
+.smarobix-brand__wordmark {
+  /* The wordmark's artwork does not reach the floor of its own viewBox — there
+     are ~10 of its 175 units of empty space under the letters. `align-items:
+     baseline` puts the IMAGE BOX on the text baseline, so those units left the
+     letters floating ~1.2px above it and "Insights" read as sitting low.
+     Nudging by a percentage of the element's own height keeps the correction
+     correct if the lockup is ever resized. */
+  transform: translateY(6.1%);
+}
+
+/* Syne Regular. The rule this replaces asked for weight 100, which the @import
+   at the top of this file never loaded — it silently rendered as 400, so the
+   "thin" lockup it described never existed. 400 is now asked for honestly.
+   No margin here: the three lockup children are spaced solely by the flex
+   `gap` above, which is what keeps mark → wordmark → "Insights" even. */
+.smarobix-brand__descriptor {
+  font-family: "Syne", sans-serif;
+  font-weight: 400;
+  font-size: 1.35rem;
+  color: #ffffff;
+  letter-spacing: 0.06em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* Hide the default site title text but keep the element as a flex spacer
+   so the search icon is pushed to the far right */
+.md-header__title {
+  visibility: hidden;
+  flex-grow: 1;
+}
+
+/* The mike version selector is JS-injected into .md-header__topic
+   (inside the hidden .md-header__title) — force it visible */
+.md-version {
+  visibility: visible;
+}
+
+/* ── Header and tabs use Syne brand font ── */
+.md-header,
+.md-header__topic,
+.md-tabs {
+  font-family: "Syne", sans-serif !important;
+}
+
+/* Branch/version selector: use text font, not the Syne title font.
+   The mike selector is injected into .md-header__topic, so it would
+   otherwise inherit Syne via the !important rule above. font-weight
+   is also forced normal because the dropdown items would otherwise
+   render bold (mismatching the visible button). */
+.md-version,
+.md-version__current,
+.md-version__list,
+.md-version__item,
+.md-version__link,
+.md-version__alias {
+  font-family: var(--md-text-font-family), -apple-system, BlinkMacSystemFont,
+    Helvetica, Arial, sans-serif !important;
+  font-weight: 400 !important;
+}
+
+/* Tabs: Syne semibold, title case, larger */
+.md-tabs__link {
+  font-family: "Syne", sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.9rem;
+  text-transform: capitalize;
+  opacity: 0.6;
+}
+
+/* Active tab: full opacity + orange underline */
+.md-tabs__link--active {
+  font-weight: 600 !important;
+  opacity: 1;
+  border-bottom: 2px solid #FF6634;
+}
+
+/* Headlines and subheadlines are Syne; body copy stays Work Sans.
+   BRAND_CORE.md: "Headlines are always Syne; body and diagram text are always
+   Work Sans." Only h1 was covered before, so every h2-h6 on the site was
+   silently rendering in the body face. */
+.md-typeset h1,
+.md-typeset h2,
+.md-typeset h3,
+.md-typeset h4,
+.md-typeset h5,
+.md-typeset h6 {
+  font-family: "Syne", sans-serif !important;
+  font-weight: 600 !important;
+}
+
+/* The same rule, for the headings the rule above cannot see. Both sidebars sit
+   outside `.md-typeset` and Material builds their headings as `<label>`, not
+   `h1`-`h6` — so "Table of contents" on the right, and every section heading on
+   the left ("Strategies", "AI", "Cloud Infrastructure", the whole developer-manual
+   tree), inherited the site text font instead. They are headings by role, and the
+   brand rule is about role, not tag name.
+
+   Scoped to `.md-nav__title` and to the section variant of `.md-nav__link`, which
+   Material only ever emits as a `<label>`. Page links stay Work Sans: an entry in
+   a nav list is body copy, and the split is what makes a section heading legible
+   as one. */
+.md-nav__title,
+.md-nav__item--section > label.md-nav__link {
+  font-family: "Syne", sans-serif !important;
+  font-weight: 600 !important;
+}
+
+/* ── Ordinal level labels ──
+   Pills for rating scales in comparison tables. Applied with attr_list:
+   `**partial**{ .lvl .lvl-partial }`. The word carries the meaning; the ramp
+   (outline → orange → lime) is redundancy, not the signal. Squared off to
+   follow the brand's flat rule — these used to be `border-radius: 1em`. */
+.md-typeset .lvl {
+  display: inline-block;
+  margin-right: 0.35em;
+  padding: 0.05em 0.5em;
+  border-radius: 0;
+  font-size: 0.9em;
+  font-weight: 600;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+
+/* "none" is an absence, so it gets no fill — an outline pill rather than the
+   grey one it replaces, which was the last grey left in this file. */
+.md-typeset .lvl-none {
+  background: transparent;
+  color: #ECEDDF;
+  box-shadow: inset 0 0 0 1px var(--smrbx-hairline-strong);
+}
+
+.md-typeset .lvl-weak       { background: #7A4130; color: #FFE0D6; }
+.md-typeset .lvl-partial    { background: #FF6634; color: #1A1A1A; }
+.md-typeset .lvl-strong     { background: #A9C93C; color: #1A1A1A; }
+.md-typeset .lvl-guaranteed { background: #DDFA3A; color: #1A1A1A; }
+
+/* ── Admonitions: flat, with a brand eyebrow title ──
+   Material ships these as rounded, shadowed cards in stock blue/teal/red. The
+   brand idiom is an eyebrow tag: flat, square, a solid accent bar carrying the
+   type in Syne SemiBold caps, body on the elevated surface.
+
+   Both the icon and the details chevron are recoloured to `currentColor` rather
+   than to a literal: Material draws the icon as a `mask-image` tinted by
+   `background-color`, and the chevron via `color`, each pinned to that type's
+   stock hue.
+
+   Each type contributes exactly two values — the accent and the ink that reads
+   on it — so the variant blocks below set only those, and every rule that
+   paints something consumes them. Adding a type is two declarations.
+
+   `[class]` on these selectors is a specificity bump, not a filter (every
+   admonition has a class): Material pins each type's colour at
+   `.md-typeset .note > .admonition-title` (0,3,0) and, worse for the
+   collapsible form, at `.md-typeset .note > summary::after` (0,2,2) — which
+   outranks a plain `.md-typeset details > summary::after` (0,1,3) and is why an
+   earlier pass here left the details chevrons and icons stock blue. */
+.md-typeset .admonition[class],
+.md-typeset details[class] {
+  --smrbx-adm-accent: #F286DA;
+  --smrbx-adm-ink: #1A1A1A;
+
+  border: none;
+  border-right: 3px solid var(--smrbx-adm-accent);
+  border-radius: 0;
+  box-shadow: none;
+  background-color: #242524;
+
+  /* The card is inset from the content column so the eyebrow tag can hang off
+     its left edge entirely — the bookmark tab is attached to the card, not
+     tucked inside it. The accent rule sits on the RIGHT edge, closing the card
+     opposite the tab rather than doubling up underneath it. */
+  margin-left: 0.5rem;
+  padding: 0 0.9rem 0.05rem 0.6rem;
+}
+
+/* Neutral focus ring — the stock one is a tint of each type's blue/red. */
+.md-typeset .admonition[class]:focus-within,
+.md-typeset details[class]:focus-within {
+  box-shadow: 0 0 0 0.2rem var(--smrbx-hairline);
+}
+
+.md-typeset .admonition[class] > .admonition-title,
+.md-typeset details[class] > summary {
+  /* A tag that hugs its label, not a band across the card. `width: fit-content`
+     rather than `inline-block` so a `summary` keeps its list-item semantics and
+     its click target stays the tag itself. The negative left margin is larger
+     than the card's own inset, so the tag clears the card's left edge and reads
+     as a tab hung on it. */
+  display: block;
+  width: fit-content;
+  position: relative;
+  margin: 0.75rem 0 0.6rem -1.1rem;
+  /* padding-left mirrors the negative margin exactly, so the LABEL lands on the
+     body-text column while the coloured box still hangs 1.1rem to its left.
+     In rem, not em: it has to cancel a rem margin, and the title sets its own
+     font-size, so an em here would drift with it. */
+  padding: 0.35em 0.9em 0.35em 1.1rem;
+
+  background-color: var(--smrbx-adm-accent);
+  color: var(--smrbx-adm-ink);
+  font-family: "Syne", sans-serif;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  border-radius: 0;
+  border-left: none;
+}
+
+/* No icon on the tag. The brand eyebrow is a text bookmark, and the icon is what
+   makes the two alignment rules unsatisfiable at once: the tag bleeds left by
+   0.9rem, an icon is 1rem wide, so an icon inside the tag pushes the LABEL right
+   of the content column it is supposed to line up with. The type name is already
+   spelled out in the label. */
+.md-typeset .admonition[class] > .admonition-title::before,
+.md-typeset details[class] > summary::before {
+  display: none;
+}
+
+/* The details chevron sits after the label inside the tag, not pinned to the
+   far right of a bar that no longer exists. */
+.md-typeset details[class] > summary::after {
+  position: static;
+  display: inline-block;
+  margin-left: 0.5em;
+  vertical-align: middle;
+  transform: none;
+}
+
+.md-typeset details[class][open] > summary::after {
+  transform: rotate(90deg);
+}
+
+/* The type icon is a mask tinted by `background-color`; the details chevron is
+   drawn with `color`. Both follow the ink so no type keeps a stock hue. */
+.md-typeset .admonition[class] > .admonition-title::before,
+.md-typeset details[class] > summary::before {
+  background-color: currentColor;
+}
+
+.md-typeset .admonition[class] > .admonition-title::after,
+.md-typeset details[class] > summary::after {
+  color: currentColor;
+}
+
+/* ── Accent per type ──
+   LIME is reserved for `abstract` alone, CREAM for `quote`. `caution` is not
+   one of Material's own types — it falls back to the default note styling — so
+   it is named explicitly to sit with `warning`, which is what a reader takes
+   the word to mean. */
+.md-typeset .admonition.abstract[class],
+.md-typeset details.abstract[class] {
+  --smrbx-adm-accent: #DDFA3A;
+}
+
+.md-typeset .admonition.quote[class],
+.md-typeset details.quote[class] {
+  --smrbx-adm-accent: #ECEDDF;
+}
+
+.md-typeset .admonition.warning[class],
+.md-typeset details.warning[class],
+.md-typeset .admonition.caution[class],
+.md-typeset details.caution[class] {
+  --smrbx-adm-accent: #FF6634;
+}
+
+.md-typeset .admonition.danger[class],
+.md-typeset details.danger[class],
+.md-typeset .admonition.failure[class],
+.md-typeset details.failure[class],
+.md-typeset .admonition.bug[class],
+.md-typeset details.bug[class] {
+  /* 20% of the #D6431A semantic red on white. The red itself could not carry
+     either ink: charcoal on it was 3.88:1 and cream 3.79:1, and the tag is Syne
+     SemiBold at Material's .64rem - 12.8px, small text by WCAG, so it needs 4.5.
+     Squeezed from both sides, so the fill moved. Charcoal on this is 13.10:1,
+     and it keeps the red identity that distinguishes failure/bug from the
+     orange warning/caution. */
+  --smrbx-adm-accent: #F7D9D1;
+  --smrbx-adm-ink: #FFFFFF;
+}
+
+/* ── Hairlines are cream, never grey ── */
+.md-typeset table:not([class]) th,
+.md-typeset table:not([class]) td {
+  border-color: var(--smrbx-hairline);
+}
+
+.md-typeset hr,
+.md-nav--secondary .md-nav__title {
+  border-color: var(--smrbx-hairline);
+}
+
+/* ── Mermaid: on the page's own charcoal, flat ──
+   No card. The brand's flat rule (radius 0, shadow none) applies, and on the
+   dark ground a diagram needs no white plate to be legible once its own ink is
+   cream. This is the resolution of the "named exception" in the other
+   direction: nothing to except. */
+.mermaid {
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  padding: 8px 0;
+  box-shadow: none;
+}
+
+/* Material's themeCSS reads these against the document, so setting them here
+   reaches inside the closed shadow roots the diagrams render into.
+   (dark ground: neutral blocks are the elevated surface, ink is cream) */
+[data-md-color-scheme="slate"] {
+  --md-mermaid-node-bg-color:   #242524;
+  --md-mermaid-node-fg-color:   rgba(236,237,223,0.38);
+  --md-mermaid-label-fg-color:  #ECEDDF;
+  --md-mermaid-label-bg-color:  #1A1A1A;
+  --md-mermaid-edge-color:      rgba(236,237,223,0.55);
+
+  /* Sequence diagrams share the palette; actors are neutral blocks, notes sit
+     on cream, and the signature pink marks the numbered steps. */
+  --md-mermaid-sequence-actor-bg-color:        #242524;
+  --md-mermaid-sequence-actor-fg-color:        #ECEDDF;
+  --md-mermaid-sequence-actor-border-color:    #F286DA;
+  --md-mermaid-sequence-actor-line-color:      rgba(236,237,223,0.38);
+  --md-mermaid-sequence-actorman-bg-color:     #242524;
+  --md-mermaid-sequence-actorman-line-color:   #F286DA;
+  --md-mermaid-sequence-box-bg-color:          #FF663420;
+  --md-mermaid-sequence-box-fg-color:          #ECEDDF;
+  --md-mermaid-sequence-label-bg-color:        #F286DA33;
+  --md-mermaid-sequence-label-fg-color:        #ECEDDF;
+  --md-mermaid-sequence-loop-bg-color:         #FF663420;
+  --md-mermaid-sequence-loop-fg-color:         #ECEDDF;
+  --md-mermaid-sequence-loop-border-color:     #FF6634;
+  --md-mermaid-sequence-message-fg-color:      #ECEDDF;
+  --md-mermaid-sequence-message-line-color:    rgba(236,237,223,0.55);
+  --md-mermaid-sequence-note-bg-color:         #ECEDDF;
+  --md-mermaid-sequence-note-fg-color:         #1A1A1A;
+  --md-mermaid-sequence-note-border-color:     #E4E5D4;
+  --md-mermaid-sequence-number-bg-color:       #F286DA;
+  --md-mermaid-sequence-number-fg-color:       #1A1A1A;
+}
+
+/* Subgraph zones.
+   These cannot be reached with a selector: Mermaid renders into a CLOSED shadow
+   root, so `.mermaid .cluster rect` from this stylesheet never matches. Only
+   inherited custom properties cross that boundary — which is also why the
+   `--md-mermaid-*` block above works. Material styles `.cluster rect` from two
+   GLOBAL tokens, so they are re-pointed here on the `.mermaid` host only, where
+   they inherit into the shadow tree without touching the rest of the chrome.
+   Rust on the zone outline matches the SVG figures on these same pages. */
+.mermaid {
+  --md-default-fg-color--lightest: transparent;
+  --md-default-fg-color--lighter:  #C03E29;
+}
+
+/* Per-node emphasis is likewise unreachable from here, so it lives in the
+   diagram source as a `classDef`. See any of the developer-manual architecture
+   pages; in the consuming repo `.../server/probe-integration.md` is the
+   fullest example. (This comment used to point at
+   docs/strategies/cloud-infrastructure/technical-leadership.md, which carries
+   neither a classDef nor a Mermaid diagram.) */
+
+/* --------------------------------------------------------------------------
+   Interactive benchmark figures (mkdocs-plotly-plugin).
+
+   The task / prompt dropdowns are styled from the generator
+   (benchmarks/ai/token-consumption/scripts/analysis/report/plotly_figs.py), but
+   the OPEN menu's hovered and selected rows cannot be reached from there:
+   `activecolor` exists on a plotly slider and rangeselector, not on an
+   updatemenu, so plotly.js draws those rows in a near-white that the cream
+   button font disappears into.
+
+   `!important` is needed and is not laziness: plotly.js sets the fill inline on
+   each rect as it draws, and an inline style is only beaten by `!important`.
+   Scoped to `.mkdocs-plotly` so it cannot touch any other figure on the site.
+   -------------------------------------------------------------------------- */
+.mkdocs-plotly .updatemenu-item-rect {
+  fill: #1A1A1A !important;              /* CHARCOAL — matches the closed control */
+  stroke: #ECEDDF !important;            /* CREAM hairline */
+  stroke-width: 0.5px !important;
+}
+
+/* There is no per-row "selected" class to hook — plotly.js draws that row by fill,
+   and the class list is only updatemenu-{item-rect,item-text,button,header,...}.
+   The rule above therefore flattens every row to charcoal, which is what removes the
+   unreadable near-white; hover is the one state left to distinguish. The closed
+   control already shows which entry is selected. */
+/* Hooked on the BUTTON GROUP, not on the rect. An SVG <g> has no geometry of its
+   own, so it matches whenever any CHILD is hovered — which is the whole row, rect
+   and label alike. Hooking `.updatemenu-item-rect:hover` instead meant the label,
+   which is drawn on top of the rect, swallowed the pointer: the highlight appeared
+   only when the cursor happened to land in a gap between glyphs, so the control
+   looked like it highlighted at random and needed a wiggle before it would respond.
+
+   The group is also exactly what plotly.js binds its own `click` and `mouseover` to,
+   so this matches the element that already decides whether the row is being pointed
+   at. (Plotly's own hover fill is set inline by that handler and is overridden by the
+   `!important` above — deliberately: its near-white is the unreadable colour this
+   block exists to replace. So CSS has to supply the hover state itself.) */
+.mkdocs-plotly .updatemenu-button:hover .updatemenu-item-rect {
+  /* 50% pink on charcoal. Cream on it is 5.16:1, which is what the old value
+     claimed and did not do: #C74BB0 carried cream at 3.51:1, and these labels
+     are small text. Charcoal would have been 4.20:1 - better, still short - so
+     the fill had to move, not the ink. */
+  fill: #86507A !important;
+}
+
+.mkdocs-plotly .updatemenu-item-text {
+  fill: #ECEDDF !important;              /* CREAM, on both the plain and the pink row */
+}
