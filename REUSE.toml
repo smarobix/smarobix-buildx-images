@@ -1,0 +1,44 @@
+# SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+# SPDX-License-Identifier: Apache-2.0
+
+# Licensing for files that carry no SPDX header of their own. A header in the
+# file itself always wins over these entries (precedence "closest"). When a
+# file matches several entries, the last one applies.
+version = 1
+
+# Documentation, data and ignore files. docs/**, mkdocs.yml and targets.yml are
+# listed ahead of time for the documentation site.
+[[annotations]]
+path = [
+    "**.md",
+    "**.json",
+    "NOTICE",
+    ".dockerignore",
+    ".gitignore",
+    "docs/**",
+    "mkdocs.yml",
+    "targets.yml",
+]
+precedence = "closest"
+SPDX-FileCopyrightText = "2025-2026 SMAROBIX GmbH"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Files the pynq-z1 and rpi Dockerfiles COPY into the image. A header in them
+# would change the COPY checksum and force a cold source rebuild of ten images.
+[[annotations]]
+path = [
+    "dockerfiles/pynq-z1/extra.repos.*",
+    "dockerfiles/rpi/extra.repos.*",
+    "dockerfiles/rpi/patch-sources",
+    "dockerfiles/rpi/ros-build",
+]
+precedence = "closest"
+SPDX-FileCopyrightText = "2025-2026 SMAROBIX GmbH"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Everything under yocto/ is MIT, the OpenEmbedded and meta-ros convention.
+[[annotations]]
+path = ["yocto/**.md"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2025-2026 SMAROBIX GmbH"
+SPDX-License-Identifier = "MIT"

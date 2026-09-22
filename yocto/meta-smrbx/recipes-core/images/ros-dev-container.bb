@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+# SPDX-License-Identifier: MIT
+
 SUMMARY = "Native ROS 2 build container, from the same build as the board image"
 DESCRIPTION = "An aarch64 OCI image of the meta-ros userspace with compilers and \
 development headers. colcon-buildx builds inside it natively (its --method docker \

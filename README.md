@@ -344,4 +344,6 @@ Image tags published to GHCR are rolling: `:<image>-<distro>` from `main`, `:<im
 
 ## License
 
-Apache License 2.0; the published images carry `org.opencontainers.image.licenses=Apache-2.0`.
+Apache License 2.0; see [LICENSE](LICENSE) and [NOTICE](NOTICE). Copyright 2025-2026 SMAROBIX GmbH.
+
+The Yocto configuration under `yocto/` (kas files and the meta-smrbx layer) is MIT-licensed, following the OpenEmbedded convention. The published Docker images and `.deb` packages contain third-party software (the Ubuntu or Debian base, ROS 2, OpenCV and others) that is distributed under its own licences.
