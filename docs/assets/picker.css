@@ -1,0 +1,133 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * Styles for the target picker on the home page (assets/picker.js). Every
+ * colour is one of Material's own custom properties, so the picker follows
+ * the light and dark palettes without a second set of values here.
+ */
+
+.buildx-picker {
+  margin: 1em 0 2em;
+  border: 0.05rem solid var(--md-default-fg-color--lightest);
+  border-radius: 0.2rem;
+  overflow: hidden;
+}
+
+.buildx-picker__bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2em 1em;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0.6em 1em;
+  background-color: var(--md-default-fg-color--lightest);
+}
+
+.buildx-picker__bar span {
+  font-size: 0.7em;
+  color: var(--md-default-fg-color--light);
+  overflow-wrap: anywhere;
+}
+
+.buildx-picker__pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11em, 1fr));
+  gap: 0.8em;
+  padding: 1em;
+}
+
+.buildx-picker__field[hidden] {
+  display: none;
+}
+
+.buildx-picker__field label {
+  display: block;
+  margin-bottom: 0.3em;
+  font-size: 0.7em;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--md-default-fg-color--light);
+}
+
+.buildx-picker select {
+  width: 100%;
+  padding: 0.4em 0.5em;
+  font: inherit;
+  color: var(--md-typeset-color);
+  background-color: var(--md-default-bg-color);
+  border: 0.05rem solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+}
+
+/* Let the browser draw the drop-down list dark when the site is dark. */
+[data-md-color-scheme="slate"] .buildx-picker select {
+  color-scheme: dark;
+}
+
+.buildx-picker__out {
+  padding: 0 1em 1em;
+}
+
+.md-typeset .buildx-picker__out h3,
+.md-typeset .buildx-picker__out h4 {
+  margin: 1.2em 0 0.4em;
+  font-size: 1em;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.md-typeset .buildx-picker__out p {
+  margin: 0.4em 0 0;
+  color: var(--md-default-fg-color--light);
+}
+
+.buildx-picker__snippet {
+  position: relative;
+}
+
+.md-typeset .buildx-picker__snippet pre {
+  margin: 0.5em 0 0;
+}
+
+/* Room for the copy button over the first line. */
+.md-typeset .buildx-picker__snippet pre > code {
+  padding-right: 5em;
+}
+
+.buildx-picker__copy {
+  position: absolute;
+  top: 0.5em;
+  right: 0.5em;
+  padding: 0.1em 0.6em;
+  font-size: 0.7em;
+  color: var(--md-code-fg-color);
+  background-color: transparent;
+  border: 0.05rem solid var(--md-default-fg-color--lighter);
+  border-radius: 0.2rem;
+  cursor: pointer;
+}
+
+.buildx-picker__copy:hover {
+  color: var(--md-accent-fg-color);
+  border-color: var(--md-accent-fg-color);
+}
+
+.buildx-picker select:focus-visible,
+.buildx-picker__copy:focus-visible {
+  outline: 0.1rem solid var(--md-accent-fg-color);
+  outline-offset: 0.1rem;
+}
+
+/* Announced by screen readers, not shown. */
+.buildx-picker__sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
