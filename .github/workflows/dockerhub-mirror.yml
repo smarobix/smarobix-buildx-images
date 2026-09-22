@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Image tag to mirror (e.g. k26-jazzy, pynq-z1-humble)"
+        description: "Image tag to mirror (e.g. k26-jazzy, pynq-v3.1.1-humble)"
         required: true
         type: string
       dockerhub_repo:
