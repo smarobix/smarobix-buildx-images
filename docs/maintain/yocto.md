@@ -75,7 +75,7 @@ Each of these cost a failed build. They are commented inline too; don't tidy the
 - Shared `DL_DIR` and `SSTATE_DIR` across machines, and `wic.bz2` and `wic.bmap` outputs.
 - **`TOOLCHAIN_HOST_TASK:append = " nativesdk-ros-sdk-env"`.** `ros-sdk-env` is what sets `OE_CMAKE_TOOLCHAIN_FILE`, derives `PYTHON_SOABI` and sets `AMENT_PREFIX_PATH` in the SDK, and nothing in meta-ros references it: not `ROS_SDK_HOST_PACKAGES`, not any image. Without this line the SDK cannot configure a ROS workspace. Build the SDK from `ros2-image-sdktest`; `ros-image-core -c populate_sdk` also lacks colcon.
 - **`ssh-server-openssh` and `rsync`** in the images, so a workspace can be deployed over SSH. OpenSSH rather than dropbear: modern `scp` uses SFTP, which dropbear lacks.
-- **`SDKIMAGE_FEATURES = "dev-pkgs"`.** The SDK is for building against, not for debugging on. With the default `dev-pkgs dbg-pkgs src-pkgs`, debug symbols made up 72 % of the KV260 SDK's target sysroot and debug sources another 8 %. Dropping them shrank the installer about fourfold.
+- **`SDKIMAGE_FEATURES = "dev-pkgs"`.** The SDK is for building against, not for debugging on. With the default `dev-pkgs dbg-pkgs src-pkgs`, debug symbols made up 72 % of the KV260 SDK's target sysroot and debug sources another 8 %. Dropping them shrank the installer from 1.1 GB to 272 MB. See [Tested hardware](../reference/tested-hardware.md#image-sizes) for the published sizes.
 
 ## meta-smrbx
 

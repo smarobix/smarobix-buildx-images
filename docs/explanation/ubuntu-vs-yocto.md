@@ -17,7 +17,8 @@ the rest.
 The build images mirror that: the same base distribution and the same ROS 2 packages as
 the board.
 
-- `k26-jazzy` is Ubuntu 24.04 with ROS 2 Jazzy from packages.ros.org, the Xilinx PPAs
+- `k26-jazzy` is Ubuntu 24.04 with ROS 2 Jazzy `ros-base` from packages.ros.org, plus
+  `cv_bridge`, `image_transport`, `vision_msgs` and `v4l2_camera`, the Xilinx PPAs
   (`xilinx-apps/xilinx-drivers`, `ubuntu-xilinx/gstreamer`, `ubuntu-xilinx/sdk`),
   GStreamer (good, bad, libav), `gcc-aarch64-linux-gnu`, and OpenCV 4.10 with the
   contrib modules built from source into `/opt/install`. `k26-humble` is the same idea

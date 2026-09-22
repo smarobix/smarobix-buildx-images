@@ -68,6 +68,21 @@ running `ros2 topic echo` against a talker; no date was recorded for that either
 | Apple Silicon Mac | The dev containers and `k26-oesdk-jazzy` were run from one (2026-09-15) |
 | x86_64 | The Yocto images under QEMU have not been tried. The Pynq and 32-bit Debian images are built on x86_64 runners in CI, which exercises the emulation but not colcon-buildx |
 
+## Image sizes
+
+Measured on 2026-09-15, on the published images. They change with every rebuild, so treat them as orders of magnitude rather than exact figures.
+
+| Image | Download | Unpacked |
+|---|---|---|
+| `k26-yocto-jazzy` | 215 MB | 1.38 GB |
+| `rpi5-yocto-jazzy` | 232 MB | 1.41 GB |
+| `k26-oesdk-jazzy` | 830 MB (215 MB dev container + 617 MB SDK layer) | |
+| `rpi5-oesdk-jazzy` | 950 MB (232 MB + 717 MB) | |
+
+If you already have the dev container, an SDK image costs only its own layer.
+
+The SDKs are built without debug packages (`SDKIMAGE_FEATURES = "dev-pkgs"`). With the default `dev-pkgs dbg-pkgs src-pkgs`, debug symbols were 72 % of the KV260 SDK's target sysroot and debug sources another 8 %: the installer was 1.1 GB instead of 272 MB, and the resulting K26 image about 10 GB. See [Rebuild the Yocto images](../maintain/yocto.md).
+
 ## Adding a record
 
 Add a row with the date, exactly what was run and what happened, and update that
