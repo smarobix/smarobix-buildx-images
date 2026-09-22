@@ -13,6 +13,11 @@ is wrong for two kinds of page:
   dropped otherwise.
 """
 
+import logging
+from pathlib import Path
+
+log = logging.getLogger("mkdocs.hooks.buildx")
+
 TOOL_PREFIX = 'tool/'
 TOOL_EDIT_BASE = (
     'https://github.com/smarobix/smarobix-colcon-buildx/edit/main/docs/')
@@ -27,6 +32,44 @@ GENERATED = {
     'tool/reference/cli.md': None,
     'tool/reference/config-keys.md': None,
 }
+
+
+def on_config(config):
+    """Drop the tool/ section when colcon-buildx's docs are not present.
+
+    tools/build-site.sh copies them in before the build. They arrive with
+    that repository's own docs pull request, and until it lands a nav entry
+    for a missing file fails --strict.
+    """
+    docs_dir = Path(config['docs_dir'])
+    if (docs_dir / TOOL_PREFIX / 'index.md').is_file():
+        return config
+
+    def strip(items):
+        kept = []
+        for item in items:
+            if isinstance(item, dict):
+                (title, value), = item.items()
+                if isinstance(value, str):
+                    if value.startswith(TOOL_PREFIX):
+                        continue
+                else:
+                    value = strip(value)
+                    if not value:
+                        continue
+                    item = {title: value}
+            elif isinstance(item, str) and item.startswith(TOOL_PREFIX):
+                continue
+            kept.append(item)
+        return kept
+
+    if config.get('nav'):
+        config['nav'] = strip(config['nav'])
+        # info, not warning: --strict turns warnings into failures, and
+        # build-site.sh already says this on its own line.
+        log.info(
+            'no docs/tool/: building without the colcon-buildx section')
+    return config
 
 
 def on_page_context(context, page, config, nav):

@@ -61,7 +61,7 @@ If no picker appears here, every target, image tag and `.deb` file is also liste
 
     ---
 
-    The colcon verb: [overview](tool/index.md), [install](tool/install.md), [usage](tool/usage.md) and [configuration](tool/config.md).
+    The colcon verb: [overview](https://smarobix.github.io/smarobix-buildx-images/tool/), [install](https://smarobix.github.io/smarobix-buildx-images/tool/install/), [usage](https://smarobix.github.io/smarobix-buildx-images/tool/usage/) and [configuration](https://smarobix.github.io/smarobix-buildx-images/tool/config/).
 
 -   **Maintainers**
 

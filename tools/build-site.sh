@@ -82,13 +82,23 @@ else
     note "colcon-buildx at $(git -C "$tmp/colcon-buildx" rev-parse --short HEAD)"
     cbx_docs=$tmp/colcon-buildx/docs
 fi
-[ -f "$cbx_docs/index.md" ] || die "no index.md in $cbx_docs: not colcon-buildx's docs directory"
 case "$(cd -- "$cbx_docs" && pwd -P)" in
     "$repo_root"/docs/tool*) die "CBX_DOCS_DIR must not be inside docs/tool" ;;
 esac
 rm -rf docs/tool
-mkdir -p docs/tool
-cp -R "$cbx_docs"/. docs/tool/
+if [ -f "$cbx_docs/index.md" ]; then
+    mkdir -p docs/tool
+    cp -R "$cbx_docs"/. docs/tool/
+elif [ -n "${CBX_DOCS_DIR:-}" ]; then
+    # An explicit directory that isn't colcon-buildx's docs is a mistake.
+    die "no index.md in $cbx_docs: not colcon-buildx's docs directory"
+else
+    # colcon-buildx's docs/ tree arrives with its own restructuring pull
+    # request. Until then, build the rest of the site rather than failing:
+    # the hook drops the tool/ section from the nav, and it comes back on
+    # its own once that branch is merged.
+    note "colcon-buildx has no docs/ yet; building without the tool/ section"
+fi
 
 # (d) No page may name an image tag or package that targets.yml doesn't have.
 note "checking the docs against targets.yml"
