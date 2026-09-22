@@ -13,7 +13,6 @@ path = [
     "**.md",
     "**.json",
     "NOTICE",
-    ".dockerignore",
     ".gitignore",
     "docs/**",
     "mkdocs.yml",
