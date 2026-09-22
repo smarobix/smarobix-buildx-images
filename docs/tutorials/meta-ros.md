@@ -140,7 +140,7 @@ colcon buildx --method docker \
 
 `ghcr.io/smarobix/smarobix-buildx-images:k26-yocto-jazzy` (use `rpi5-yocto-jazzy` for a Pi 5). Needs Docker, with QEMU on x86_64.
 
-An aarch64 OCI image of the board's own userspace, plus compilers and `-dev` packages. Bitbake builds it from the same configuration as the board image (recipe `ros-dev-container`). It compiles natively, with no Ubuntu and no cross toolchain, and it's the only route that also generates Python message bindings.
+An aarch64 OCI image of the board's own userspace, plus compilers and `-dev` packages. Bitbake builds it from the same configuration as the board image (recipe `ros-dev-container`). It compiles natively, with no Ubuntu and no cross toolchain, and of the three routes here it is the one that also generates Python message bindings.
 
 ```bash
 colcon buildx --method docker --docker-platform linux/arm64 \

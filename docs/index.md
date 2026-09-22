@@ -3,7 +3,7 @@ hide:
   - toc
 ---
 
-# smarobix buildx
+# SMAROBIX buildx
 
 Cross-build your ROS 2 workspace for ARM boards on your own computer, and install ROS 2 on boards that have no official ROS 2 binaries. Every supported board, OS and ROS 2 distro is listed in the [targets reference](reference/targets.md).
 

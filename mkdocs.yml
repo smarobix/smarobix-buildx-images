@@ -7,7 +7,7 @@
 # and the nav below refers to both. After one run of the script,
 # "mkdocs serve" works for a local preview.
 
-site_name: smarobix buildx
+site_name: SMAROBIX buildx
 site_url: https://smarobix.github.io/smarobix-buildx-images/
 site_description: >-
   Cross-build ROS 2 workspaces for ARM boards with colcon buildx, and put ROS 2
@@ -39,24 +39,24 @@ hooks:
 
 theme:
   name: material
-  # No web fonts: Material would load them from Google's servers on every page
-  # view. The system font stack needs no third-party request.
+  # The SMAROBIX docs theme, copied from brand-core/templates/docs-theme at
+  # commit b2b89ed: stylesheets/extra.css, javascripts/extra.js and the header
+  # partial carrying the lockup. brand-core owns those rules; this site only
+  # names its own product in the header and adds the picker's styles.
+  custom_dir: docs/overrides
+  # No web fonts from a CDN: it would send every visitor's IP address to a
+  # third party. stylesheets/fonts.css serves the brand faces from this site.
   font: false
+  # Dark only, which is the brand's default for a docs site: the reader here is
+  # a robotics engineer and the reference is the product's own documentation.
+  # Material needs a primary and an accent from its own list; extra.css paints
+  # over both with the brand pink and orange.
   palette:
-    - media: "(prefers-color-scheme: light)"
-      scheme: default
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-7
-        name: Switch to dark mode
-    - media: "(prefers-color-scheme: dark)"
-      scheme: slate
-      primary: indigo
-      accent: indigo
-      toggle:
-        icon: material/brightness-4
-        name: Switch to light mode
+    scheme: slate
+    primary: custom
+    accent: custom
+  logo: assets/mark.svg
+  favicon: assets/mark.svg
   features:
     - navigation.sections
     - navigation.top
@@ -86,9 +86,13 @@ markdown_extensions:
   - pymdownx.superfences
 
 extra_css:
+  # fonts.css first: it declares the families extra.css then asks for.
+  - stylesheets/fonts.css
+  - stylesheets/extra.css
   - assets/picker.css
 
 extra_javascript:
+  - javascripts/extra.js
   - assets/picker.js
 
 nav:

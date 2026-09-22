@@ -39,7 +39,7 @@ Where the middleware comes from differs by target:
 | Kria K26 on Ubuntu | packages.ros.org: `sudo apt install ros-<distro>-rmw-cyclonedds-cpp` |
 | Yocto / meta-ros | the board image; meta-ros installs both with `rmw-implementation` |
 
-The `.deb` prints the recommendation when it is configured, because that is the only
+The `.deb` prints the recommendation when it is configured, because installing is the
 moment a user reliably reads anything about the package. The packages from release
 v1.1.0 still print the older, per-architecture advice; this page is the current one.
 

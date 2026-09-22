@@ -41,3 +41,32 @@ path = ["yocto/**.md"]
 precedence = "closest"
 SPDX-FileCopyrightText = "2025-2026 SMAROBIX GmbH"
 SPDX-License-Identifier = "MIT"
+
+# The brand faces, copied from brand-core/fonts/. Each family keeps its own
+# copyright line; the licence text they share is in LICENSES/OFL-1.1.txt.
+[[annotations]]
+path = ["docs/assets/fonts/Syne-*.woff2"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2017 The Syne Project Authors (https://gitlab.com/bonjour-monde/fonderie/syne-typeface)"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = ["docs/assets/fonts/WorkSans-*.woff2"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2019 The Work Sans Project Authors (https://github.com/weiweihuanghuang/Work-Sans)"
+SPDX-License-Identifier = "OFL-1.1"
+
+[[annotations]]
+path = ["docs/assets/fonts/RobotoMono-*.woff2"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2015 The Roboto Mono Project Authors (https://github.com/googlefonts/robotomono)"
+SPDX-License-Identifier = "OFL-1.1"
+
+# The SMAROBIX marks. They are trademarks, not part of the Apache-2.0 grant
+# this repository makes for its code: a fork may keep the code and must not
+# keep the marks. See LICENSES/LicenseRef-SMAROBIX-Brand.txt.
+[[annotations]]
+path = ["docs/assets/mark.svg", "docs/assets/logo.svg"]
+precedence = "closest"
+SPDX-FileCopyrightText = "2025-2026 SMAROBIX GmbH"
+SPDX-License-Identifier = "LicenseRef-SMAROBIX-Brand"
