@@ -327,3 +327,8 @@ jobs:
           files: dist/*
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # The hand-made yocto-sdk-* releases that carry the SDK installers
+          # share this release stream, so they must be created with
+          # `gh release create ... --latest=false`. Saying it here as well
+          # makes every v* release the latest one, whatever GitHub would infer.
+          make_latest: true
