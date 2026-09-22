@@ -76,7 +76,7 @@ on a real board.
 | Tier | Contains | Installed by `apt install ./file.deb` |
 |---|---|---|
 | `Depends` | The shared libraries the tree links against (OpenCV, Boost.Python, libssl, sqlite3, zstd, tinyxml2, libyaml and the rest) plus the Python modules without which `ros2` will not start: `python3`, `python3-argcomplete`, `python3-lark`, `python3-numpy`, `python3-packaging`, `python3-psutil`, `python3-yaml`, and `python3-netifaces` on Humble | Yes, required |
-| `Recommends` | Optional features: `python3-opencv` for `cv_bridge`'s Python bindings, `python3-cryptography` for `sros2`, `python3-rosdistro` for `ros2doctor`, `python3-catkin-pkg`, `python3-lxml` | Yes, by default; opt out with `--no-install-recommends` |
+| `Recommends` | Optional features: `python3-opencv` for `cv_bridge`'s Python bindings on the Debian packages, `python3-cryptography` for `sros2`, `python3-rosdistro` for `ros2doctor`, `python3-catkin-pkg`, `python3-lxml`. On the Pynq package `python3-opencv` does not help: those bindings link the OpenCV built into the image, not the one apt installs (see [OpenCV](#opencv)) | Yes, by default; opt out with `--no-install-recommends` |
 | `Suggests` | The toolchain for compiling ROS packages *on* the board | No. See [Build ROS packages on the board](../how-to/build-on-the-board.md) |
 
 The `Depends:` list is not hand-written: it is derived at package time from what the

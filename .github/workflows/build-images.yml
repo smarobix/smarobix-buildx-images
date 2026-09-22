@@ -38,6 +38,12 @@ jobs:
       - name: Test tools/targets.py
         run: python3 tools/test_targets.py
 
+      # The targets reference is generated from targets.yml. Without this, an
+      # edit to targets.yml that skips the regeneration leaves a stale page
+      # and a green build.
+      - name: Check that the generated targets reference is current
+        run: python3 tools/targets.py docs --check -o docs/reference/targets.md
+
       - name: Generate the matrices
         id: matrix
         # Assigned first: under bash -e a failing command substitution inside

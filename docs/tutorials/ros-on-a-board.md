@@ -32,9 +32,12 @@ If you get something other than `trixie` and `arm64`, read
 ## 2. Install the package
 
 ```bash
+sudo apt update
 wget https://github.com/smarobix/smarobix-buildx-images/releases/download/v1.1.0/smarobix-ros-jazzy-rpi-trixie_1.1.0_arm64.deb
 sudo apt install ./smarobix-ros-jazzy-rpi-trixie_1.1.0_arm64.deb
 ```
+
+Run `apt update` first even on a fresh image. The package declares real dependencies, and apt cannot install them from stale package lists: it fails with "held broken packages" instead.
 
 Use `apt install ./<file>.deb`, not `dpkg -i`. The package declares real dependencies,
 and `dpkg -i` installs none of them: on a Lite image it reports success and then `ros2`
