@@ -9,3 +9,7 @@ dockerfiles/.DS_Store
 # Yocto SDK installers, downloaded here and passed to dockerfiles/oesdk as its
 # "sdk" build context
 /sdk/
+
+# Python bytecode
+__pycache__/
+*.py[co]
