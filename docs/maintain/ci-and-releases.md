@@ -28,7 +28,7 @@ The `:<id>-buildcache` tags in the registry are BuildKit cache, not images.
 
 ## Pull request scope
 
-A pull request builds only the images whose inputs it changes. An image's inputs are its `dockerfiles/<dir>/` directory; `build-images.yml` and `targets.yml` count as inputs for all of them, so a change to either builds everything. An image that is skipped still reports success, so it never blocks a merge.
+A pull request builds only the images whose inputs it changes. An image's inputs are its `dockerfiles/<dir>/` directory; `build-images.yml`, `targets.yml` and `tools/targets.py` count as inputs for all of them, so a change to any of those builds everything. An image that is skipped still reports success, so it never blocks a merge.
 
 A pull request never logs in to the registry and pushes nothing, and a pull request from a fork gets a read-only token in any case. A green pull request build means the Dockerfiles still compile.
 
