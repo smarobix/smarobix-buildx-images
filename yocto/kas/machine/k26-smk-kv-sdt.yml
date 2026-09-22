@@ -4,7 +4,7 @@
 # AMD Kria KV260 Vision AI Starter Kit (K26 SOM + KV260 carrier).
 #
 # The SDT (System Device Tree) machine is used rather than the XSCT one:
-# k26-smk-kr sets XILINX_WITH_ESW="xsct", and XSCT is an x86_64-only AMD
+# k26-smk-kv sets XILINX_WITH_ESW="xsct", and XSCT is an x86_64-only AMD
 # binary. The SDT flow downloads prebuilt system-device-tree artifacts and
 # processes them with lopper (Python), so it builds on an aarch64 host.
 header:

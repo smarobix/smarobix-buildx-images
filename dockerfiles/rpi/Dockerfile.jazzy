@@ -22,11 +22,13 @@
 #   linux/arm64   aarch64  — Pi 3/4/5 and Zero 2 W on a 64-bit OS
 #   linux/arm/v7  ARMv7-A  — Pi 2/3/4/5 and Zero 2 W on a 32-bit OS.
 #                            NOT Pi 1 / Zero / Zero W, which are ARMv6.
+#
 # Pinned by digest, bumped by Dependabot: an upstream base moving invalidates
 # every cached layer, and pull requests cannot refresh the registry cache, so a
-# silent bump turns the next unrelated pull request into a source rebuild. One
-# stage per suite, because a digest cannot be pasted onto debian:${SUITE}-slim;
-# SUITE picks between them, and BuildKit only pulls the one it needs.
+# silent bump turns the next pull request that builds this image into a cold
+# rebuild. One stage per suite, because a digest cannot be pasted onto
+# debian:${SUITE}-slim; SUITE picks between them, and BuildKit only pulls the
+# one it needs.
 ARG SUITE=trixie
 FROM debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS base-trixie
 FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS base-bookworm
@@ -34,8 +36,9 @@ FROM base-${SUITE}
 
 ARG SUITE=trixie
 ARG PY_VER=3.13
-# Empty means "size the build from this machine's memory"; CI sets it, because
-# several matrix jobs share one runner. See dockerfiles/rpi/ros-build.
+# Optional. Empty means "size the build from this machine's memory". Set it when
+# several builds share one machine; CI does not currently pass it. See
+# dockerfiles/rpi/ros-build.
 ARG ROS_BUILD_WORKERS=
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -61,9 +64,9 @@ ENV LC_ALL=en_US.UTF-8
 # Depends: on it. It also removes the slowest layer under QEMU.
 #
 # pip needs --break-system-packages: bookworm and trixie both mark the system
-# interpreter externally-managed (PEP 668), and colcon/vcstool/rosdep are not
-# packaged by Debian. empy is pinned to 3.3.4 — rosidl's generators are
-# incompatible with the 4.x API that Debian ships.
+# interpreter externally-managed (PEP 668). The empy==3.3.4 pin is
+# belt-and-braces: Jazzy's rosidl works with empy 3 and 4, and 3.3.4 is what
+# Humble needs and what Debian ships as python3-empy.
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git wget unzip build-essential cmake g++ gcc pkg-config apt-utils \
     python3-dev python3-pip python3-setuptools python3-numpy \
@@ -77,8 +80,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # --- Prepare ROS 2 source tree
 # raw.githubusercontent.com answers HTTP 429 when several builds fetch rosdistro
-# at once, which is routine with a 12-entry matrix, so retry with backoff rather
-# than losing a multi-hour build to a transient rate limit.
+# at once, which is routine when the whole matrix builds, so retry with backoff
+# rather than losing a multi-hour build to a transient rate limit.
 RUN rosdep init && \
     ok=0; \
     for i in 1 2 3 4 5; do \
@@ -114,7 +117,7 @@ RUN chmod +x /usr/local/bin/ros-build
 # Phase 1: ros_base equivalent
 #   - rclcpp/rclpy + all rcl/rmw core deps
 #   - all common interfaces (std_msgs, geometry_msgs, sensor_msgs, nav_msgs, etc.)
-#   - ros2cli + all sub-commands (topic, node, service, param, action, component)
+#   - the ros2cli framework (its sub-commands are built in Phase 3)
 #   - launch + launch_ros
 #   - pluginlib + class_loader
 # ============================================================
@@ -137,6 +140,10 @@ RUN ros-build \
 
 # ============================================================
 # Phase 2: RMW layer
+#   A no-op for the install tree: Phase 1 already built rmw_cyclonedds_cpp,
+#   because rclcpp pulls in rmw_implementation, which build-depends on every
+#   RMW in the source tree. This step only recompiles that chain. It stays
+#   because removing it would change the cache key of every later layer.
 # ============================================================
 RUN ros-build rmw_cyclonedds_cpp
 
@@ -202,9 +209,10 @@ ENV LD_LIBRARY_PATH=/opt/ros/${ROS_DISTRO}/lib
 ENV PATH=/opt/ros/${ROS_DISTRO}/bin:$PATH
 # Debian patches setuptools so that `setup.py install --prefix=X` lands in
 # X/local/lib/pythonX.Y/dist-packages rather than X/lib/pythonX.Y/site-packages.
-# Humble's tree ends up split across both (ros2cli in one, rclpy in the other),
-# so both must be on the path. Sourcing setup.bash gets this right by itself;
-# this ENV is what makes the image usable without sourcing.
+# Humble's tree ends up split across both (ros2cli in one, rclpy in the other).
+# Jazzy's tree has no such split, and the second entry is harmless here.
+# Sourcing setup.bash gets this right by itself; this ENV is what makes the
+# image usable without sourcing.
 ENV PYTHONPATH=/opt/ros/${ROS_DISTRO}/lib/python${PY_VER}/site-packages:/opt/ros/${ROS_DISTRO}/local/lib/python${PY_VER}/dist-packages
 ENV ROS_DISTRO=${ROS_DISTRO}
 ENV ROS_VERSION=2

@@ -3,7 +3,8 @@
 
 # Pinned by digest, bumped by Dependabot: an upstream base moving invalidates
 # every cached layer, and pull requests cannot refresh the registry cache, so a
-# silent bump turns the next unrelated pull request into a source rebuild.
+# silent bump turns the next pull request that builds this image into a cold
+# rebuild.
 FROM arm64v8/ubuntu:noble@sha256:19c941a00b0e535b060ff25558108a11a2c093f241d68f374899064e079cd725
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -26,7 +27,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --- Enable universe (required for ROS)
 RUN add-apt-repository universe && apt-get update && rm -rf /var/lib/apt/lists/*
 
-# --- Add ROS 2 repository using official method
+# --- Add the ROS 2 apt repository with a hand-installed ros.asc keyring
+# This is the older manual setup. The official method is now the
+# ros2-apt-source package, which Dockerfile.humble uses; switching this file
+# over changes this layer and every later one, so it waits for a change that
+# rebuilds the image anyway.
 RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | \
     gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | \

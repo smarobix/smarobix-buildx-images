@@ -5,16 +5,17 @@
 # Print a Debian Depends: field for the ROS install tree at /opt/ros/$DISTRO.
 #
 # Runs *inside* the built image, where the tree's own libraries resolve and the
-# exact runtime packages it linked against are installed. Every ELF object in
-# the tree is resolved with ldd; anything landing outside /opt/ros is an
-# external library, and dpkg tells us which package owns it.
+# exact runtime packages it linked against are installed. objdump reads the
+# direct dependencies (DT_NEEDED) of every ELF object in the tree; those the
+# tree does not provide itself are external libraries, which the dynamic linker
+# cache (ldconfig -p) turns into files and dpkg into their owning packages.
 #
 # This replaces a hand-maintained list, which drifts and understates the truth:
 # an earlier version listed only libc6/libpython/libstdc++ and silently omitted
-# libopencv-imgcodecs, libssl, libsqlite3, libtinyxml2, libyaml, libzstd, liblz4,
-# libacl1 and liblttng-ust — all of which the tree loads at runtime. On a Lite
-# board image those are absent, so that .deb would install and then fail on the
-# first `ros2` call.
+# libraries the tree loads at runtime, among them libopencv-imgcodecs,
+# libboost-python, libssl, libsqlite3, libtinyxml2, libyaml, libzstd, liblz4,
+# libacl1 and liblttng-ust. On a Lite board image those are absent, so that
+# .deb would install and then fail on the first `ros2` call.
 #
 # dpkg-shlibdeps would be the orthodox tool, but it chokes on this tree: ROS
 # libraries use $ORIGIN RPATHs and unversioned sonames, which it cannot map.

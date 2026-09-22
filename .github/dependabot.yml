@@ -21,10 +21,6 @@ updates:
     directory: /dockerfiles/rpi
     schedule:
       interval: weekly
-  - package-ecosystem: docker
-    directory: /dockerfiles/zynq
-    schedule:
-      interval: weekly
   # dockerfiles/oesdk builds on our own published dev container, which moves
   # only when we rebuild it with bitbake, so it stays on a tag.
   - package-ecosystem: github-actions

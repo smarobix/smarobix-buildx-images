@@ -3,7 +3,8 @@
 
 # Pinned by digest, bumped by Dependabot: an upstream base moving invalidates
 # every cached layer, and pull requests cannot refresh the registry cache, so a
-# silent bump turns the next unrelated pull request into a source rebuild.
+# silent bump turns the next pull request that builds this image into a cold
+# rebuild.
 FROM arm32v7/ubuntu:jammy@sha256:f3f54b94eac58a93aaae1a9005fc3139f6d835c9ce34281ce8ef5bccf436fe19
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -78,7 +79,7 @@ rm -rf /tmp/ros2_${ROS_DISTRO}/build /tmp/ros2_${ROS_DISTRO}/log\n' \
 # Phase 1: ros_base equivalent
 #   - rclcpp/rclpy + all rcl/rmw core deps
 #   - all common interfaces (std_msgs, geometry_msgs, sensor_msgs, nav_msgs, etc.)
-#   - ros2cli + all sub-commands (topic, node, service, param, action, component)
+#   - the ros2cli framework (its sub-commands are built in Phase 3)
 #   - launch + launch_ros
 #   - pluginlib + class_loader
 # ============================================================
@@ -101,6 +102,10 @@ RUN ros-build \
 
 # ============================================================
 # Phase 2: RMW layer
+#   A no-op for the install tree: Phase 1 already built rmw_cyclonedds_cpp,
+#   because rclcpp pulls in rmw_implementation, which build-depends on every
+#   RMW in the source tree. This step only recompiles that chain. It stays
+#   because removing it would change the cache key of every later layer.
 # ============================================================
 RUN ros-build rmw_cyclonedds_cpp
 
@@ -151,7 +156,7 @@ RUN ros-build \
         rclcpp_lifecycle
 
 # ============================================================
-# Phase 4: Extra packages — edit freely, phases 1 & 2 stay cached
+# Phase 4: Extra packages — edit freely, phases 1-3 stay cached
 # ============================================================
 RUN ros-build \
         cv_bridge \

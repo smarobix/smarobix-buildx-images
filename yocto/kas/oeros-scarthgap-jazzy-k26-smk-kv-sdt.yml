@@ -1,6 +1,14 @@
 # SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
 # SPDX-License-Identifier: MIT
 
+# Top-level kas config for the AMD Kria KV260 Vision AI Starter Kit
+# (machine k26-smk-kv-sdt).
+#
+# An overlay on the kas files of meta-ros's `build` branch, at commit
+# 4212d293d5779d3c3b8c445de15066e640d2e601; it cannot be used on its own. Like
+# meta-ros's own top-level configs, it is copied into that checkout's kas/
+# directory and built together with smrbx-shared.yml. See
+# https://smarobix.github.io/smarobix-buildx-images/maintain/yocto/
 header:
   version: 14
   includes:
