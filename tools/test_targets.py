@@ -113,6 +113,11 @@ class RealFile(unittest.TestCase):
         for t in self.cfg["targets"]:
             self.assertIn(f"`{t['id']}`", text)
 
+    def test_committed_docs_are_current(self):
+        page = targets.ROOT / "docs" / "reference" / "targets.md"
+        code, _, err = run("docs", "--check", "-o", str(page))
+        self.assertEqual(code, 0, err)
+
 
 def minimal():
     """A small valid targets file: one target of each shape."""
