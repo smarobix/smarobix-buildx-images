@@ -82,15 +82,15 @@ Copy a neighbouring entry of the same family and change what differs. The header
   platform: linux/arm64
   build:
     dir: rpi
+    dockerfile: Dockerfile.jazzy
     runs_on: [self-hosted, ARM64]
     args: {SUITE: trixie, PY_VER: "3.13"}
   deb:
     pkg: rpi-trixie
-    arch: arm64
     target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
     depends_extra: python3, python3-argcomplete, python3-lark, python3-numpy, python3-packaging, python3-psutil, python3-yaml
     recommends: python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro
-    suggests: build-essential cmake git python3-dev
+    suggests: build-essential cmake git python3-dev python3-empy ros-dev-tools
   rmw: rmw_cyclonedds_cpp
   tested: []
 ```

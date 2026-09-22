@@ -10,7 +10,7 @@ kas/                  kas files, overlaid on meta-ros's own kas configs
 meta-smrbx/           local layer: OpenSSH fix, dev container image
 ```
 
-These files are not standalone: the top-level configs include kas files from the `build` branch of [meta-ros](https://github.com/ros/meta-ros/tree/build/kas). The images built from them are published, so this directory is only needed to rebuild them.
+These files are not standalone: the top-level configs include kas files from the `build` branch of [meta-ros](https://github.com/ros/meta-ros/tree/build/kas). The dev containers and SDK images built from them are published, so this directory is only needed to rebuild those; the board images are not published.
 
 **Each of the unusual settings here cost a failed build. They are commented inline; don't tidy them away.**
 
