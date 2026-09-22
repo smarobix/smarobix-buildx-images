@@ -6,7 +6,7 @@ name: Build images
 on:
   pull_request:
   push:
-    branches: [main, develop]
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -122,15 +122,12 @@ jobs:
         id: meta
         run: |
           REPO="ghcr.io/${GITHUB_REPOSITORY,,}"
-          BASE="${{ matrix.image }}-${{ matrix.distro }}"
-          if [[ "${GITHUB_REF}" == "refs/heads/develop" ]]; then
-            TAG="${BASE}-develop"
-          else
-            TAG="${BASE}"
-          fi
-          echo "repo=${REPO}" >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "cache_ref=${REPO}:${BASE}-buildcache" >> "$GITHUB_OUTPUT"
+          TAG="${{ matrix.image }}-${{ matrix.distro }}"
+          {
+            echo "repo=${REPO}"
+            echo "tag=${TAG}"
+            echo "cache_ref=${REPO}:${TAG}-buildcache"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download the Yocto SDK installer
         if: ${{ steps.filter.outputs.build == 'true' && matrix.sdk_installer }}
