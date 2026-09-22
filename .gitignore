@@ -15,3 +15,7 @@ __pycache__/
 *.py[co]
 # MkDocs build output
 /site/
+
+# Python bytecode
+__pycache__/
+*.py[co]
