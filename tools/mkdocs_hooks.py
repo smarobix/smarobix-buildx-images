@@ -3,20 +3,31 @@
 
 """MkDocs hooks for the documentation site (registered in mkdocs.yml).
 
-MkDocs builds every page's "edit" link from this repository's edit_uri. That
-is wrong for two kinds of page:
+Three jobs:
 
-- tool/ is a copy of smarobix-colcon-buildx's docs/, so its source lives in
-  that repository;
-- generated pages would send an editor to a file that the next regeneration
-  overwrites. The link points at the real source when there is one and is
-  dropped otherwise.
+- Fill in ``{{ version }}`` on every page with the release the site
+  documents, so that no page hand-writes a ``.deb`` file name or download
+  link for one release. tools/build-site.sh sets BUILDX_VERSION; without it
+  the newest ``v*`` tag of this repository is used, so ``mkdocs serve`` works
+  from a clone. A page that still holds the placeholder raises a warning,
+  which fails a ``--strict`` build.
+- Drop the tool/ section from the nav when colcon-buildx's docs are not
+  present. build-site.sh copies them in before the build; without them a nav
+  entry for a missing file fails ``--strict``.
+- Point the edit links of tool/ pages at colcon-buildx, and drop them for
+  generated pages, which the next regeneration would overwrite.
 """
 
 import logging
+import os
+import re
+import subprocess
 from pathlib import Path
 
 log = logging.getLogger("mkdocs.hooks.buildx")
+
+VERSION = re.compile(r"\{\{\s*version\s*\}\}")
+RELEASE_TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
 
 TOOL_PREFIX = 'tool/'
 TOOL_EDIT_BASE = (
@@ -29,47 +40,72 @@ GENERATED = {
         'https://github.com/smarobix/smarobix-buildx-images/edit/main/'
         'targets.yml',
     # Written by colcon-buildx's tools/gen_docs.py from its code.
-    'tool/reference/cli.md': None,
-    'tool/reference/config-keys.md': None,
+    'tool/reference.md': None,
 }
 
 
+def _newest_release_tag(repo):
+    """The newest v* tag by version number, or '' when there is none."""
+    try:
+        tags = subprocess.run(
+            ["git", "tag", "--list", "v*"], cwd=repo,
+            capture_output=True, text=True, check=True).stdout.split()
+    except (OSError, subprocess.CalledProcessError):
+        return ""
+    releases = [t for t in tags if RELEASE_TAG.fullmatch(t)]
+    return max(releases, default="",
+               key=lambda t: [int(n) for n in RELEASE_TAG.fullmatch(t).groups()])
+
+
 def on_config(config):
-    """Drop the tool/ section when colcon-buildx's docs are not present.
+    repo = Path(config['config_file_path']).parent
+    version = os.environ.get("BUILDX_VERSION") or _newest_release_tag(repo)
+    version = version[1:] if version.startswith("v") else version
+    if version:
+        log.info("buildx: documenting release v%s", version)
+    else:
+        log.warning("buildx: no release to document; set BUILDX_VERSION or "
+                    "fetch the v* tags")
+    config['extra']['buildx_version'] = version
 
-    tools/build-site.sh copies them in before the build. They arrive with
-    that repository's own docs pull request, and until it lands a nav entry
-    for a missing file fails --strict.
-    """
     docs_dir = Path(config['docs_dir'])
-    if (docs_dir / TOOL_PREFIX / 'index.md').is_file():
-        return config
-
-    def strip(items):
-        kept = []
-        for item in items:
-            if isinstance(item, dict):
-                (title, value), = item.items()
-                if isinstance(value, str):
-                    if value.startswith(TOOL_PREFIX):
-                        continue
-                else:
-                    value = strip(value)
-                    if not value:
-                        continue
-                    item = {title: value}
-            elif isinstance(item, str) and item.startswith(TOOL_PREFIX):
-                continue
-            kept.append(item)
-        return kept
-
-    if config.get('nav'):
-        config['nav'] = strip(config['nav'])
-        # info, not warning: --strict turns warnings into failures, and
-        # build-site.sh already says this on its own line.
-        log.info(
-            'no docs/tool/: building without the colcon-buildx section')
+    if not (docs_dir / TOOL_PREFIX / 'reference.md').is_file():
+        if config.get('nav'):
+            config['nav'] = _without_tool(config['nav'])
+            # info, not warning: --strict turns warnings into failures, and
+            # build-site.sh already says this on its own line.
+            log.info(
+                'no docs/tool/: building without the colcon-buildx pages')
     return config
+
+
+def _without_tool(items):
+    kept = []
+    for item in items:
+        if isinstance(item, dict):
+            (title, value), = item.items()
+            if isinstance(value, str):
+                if value.startswith(TOOL_PREFIX):
+                    continue
+            else:
+                value = _without_tool(value)
+                if not value:
+                    continue
+                item = {title: value}
+        elif isinstance(item, str) and item.startswith(TOOL_PREFIX):
+            continue
+        kept.append(item)
+    return kept
+
+
+def on_page_markdown(markdown, page, config, files):
+    version = config['extra'].get('buildx_version')
+    if version:
+        return VERSION.sub(version, markdown)
+    if VERSION.search(markdown):
+        log.warning("buildx: %s: {{ version }} left unresolved",
+                    page.file.src_uri)
+    return markdown
 
 
 def on_page_context(context, page, config, nav):

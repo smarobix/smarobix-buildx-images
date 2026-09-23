@@ -272,7 +272,7 @@ jobs:
           # `dpkg -i`, and neither surfaces the RMW choice or the extra step
           # needed to build packages on the board — so say it at install time.
           # ros-dev-tools in Suggests comes from the ROS 2 apt source, which the
-          # user adds first; the page linked below has the commands.
+          # user adds first with the ros2-apt-source package named below.
           cat > "$STAGE/DEBIAN/postinst" <<EOF
           #!/bin/sh
           set -e
@@ -290,7 +290,7 @@ jobs:
           add the ROS 2 apt source with the ros2-apt-source package, then:
             sudo apt update
             sudo apt install ${{ matrix.suggests }}
-          Step by step: https://smarobix.github.io/smarobix-buildx-images/how-to/build-on-the-board/
+          Documentation: https://smarobix.github.io/smarobix-buildx-images/
 
           MSG
           fi

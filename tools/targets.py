@@ -8,9 +8,12 @@ and turns it into:
 
     matrix build|package       the job matrices of build-images.yml (JSON)
     docs [-o FILE] [--check]   docs/reference/targets.md
-    json --version X [-o FILE] targets.json for the documentation site
     check-docs PATH...         fails on image tags or .deb names in markdown
                                that targets.yml does not define
+
+The documentation site fills "{{ version }}" on every page with the release
+it documents (tools/mkdocs_hooks.py), so a .deb file name in a page may carry
+that placeholder; check-docs reads it as a version.
 
 Every subcommand validates targets.yml first and exits 1, listing every
 problem it found, if the file is not valid. Needs Python 3.8+ and PyYAML.
@@ -89,6 +92,9 @@ SDK_KEYS = {"base_image", "release", "installer", "sha256", "env_setup"}
 DEB_KEYS = {"pkg", "target", "depends_extra", "recommends", "suggests"}
 TESTED_KEYS = {"board", "date", "note"}
 
+# The release placeholder the site build fills in; check-docs treats it as a
+# version so that the file name around it is still checked.
+VERSION_PLACEHOLDER = re.compile(r"\{\{\s*version\s*\}\}")
 # Characters that make a mention in the docs a placeholder or a pattern
 # (`<tag>`, `${TAG}`, `rpi-*`, `k26-…`) rather than a real name.
 PLACEHOLDER = re.compile(r"[<>{}*$…]|\.\.\.")
@@ -449,49 +455,6 @@ def package_name(t):
     return f"smarobix-ros-{t['distro']}-{t['deb']['pkg']}"
 
 
-def site_json(cfg, version):
-    """targets.json for the documentation site, for release `version`."""
-    version = version[1:] if version.startswith("v") else version
-    if not re.fullmatch(r"\d+\.\d+\.\d+([.+~-][0-9A-Za-z.+~-]+)?", version):
-        raise TargetsError([f"--version {version!r} is not a release version such as 1.1.0"])
-    tag = f"v{version}"
-    base = f"https://github.com/{cfg['repository']}/releases/download/{tag}"
-    targets = []
-    for t in cfg["targets"]:
-        deb = None
-        if t["deb"] is not None:
-            filename = f"{package_name(t)}_{version}_{t['arch']}.deb"
-            deb = {
-                "pkg": t["deb"]["pkg"],
-                "name": package_name(t),
-                "arch": t["arch"],
-                "filename": filename,
-                "url": f"{base}/{filename}",
-            }
-        targets.append({
-            "id": t["id"],
-            "image": t["image"],
-            "distro": t["distro"],
-            "family": t["family"],
-            "board": t["board"],
-            "boards": t["boards"],
-            "os": {"name": t["os"]["name"], "codename": t["os"]["codename"]},
-            "arch": t["arch"],
-            "platform": t["platform"],
-            "rmw": t["rmw"],
-            "published": t["published"],
-            "tested": t["tested"],
-            "deb": deb,
-        })
-    return {
-        "version": version,
-        "release_tag": tag,
-        "registry": cfg["registry"],
-        "release_base_url": base,
-        "targets": targets,
-    }
-
-
 def _cell(text):
     return str(text).replace("|", "\\|")
 
@@ -506,44 +469,31 @@ def render_docs(cfg):
         "",
         "# Targets",
         "",
-        f"Generated from [`targets.yml`]({repo_url}/blob/main/targets.yml); do not edit this "
-        "page by hand.",
+        f"Every published image, generated from [`targets.yml`]({repo_url}/blob/main/targets.yml). "
+        f"An image is `{registry}:<tag>`, for example `{registry}:{example}`.",
         "",
-        f"Every image is published as `{registry}:<tag>`, with the tag from the first column, "
-        f"for example `{registry}:{example}`.",
-        "",
-        "The `.deb` column names the Debian package that every `v*` release attaches for that "
-        "target, as `<package>_<version>_<arch>.deb` next to a `.tar.gz` of the same tree. "
-        "`<version>` is the release tag without the `v`, and `<arch>` is the Arch column; "
-        "[.deb packages](deb-packages.md) describes them.",
-        "",
-        "RMW is the recommendation the `.deb` prints when it installs. Nothing sets "
-        "`RMW_IMPLEMENTATION`, so you export it yourself; [Which RMW](../explanation/rmw.md) "
-        "says why. Tested lists dated runs on real hardware, with the details under the "
-        "table and in [Tested hardware](tested-hardware.md).",
+        "Where a `.deb` package is named, every `v*` "
+        f"[release]({repo_url}/releases) attaches it as `<package>_<version>_<arch>.deb`, "
+        "next to a `.tar.gz` of the same tree; "
+        "[How it works](../how-it-works.md#what-is-in-a-deb) describes the packages. "
+        "Tested lists dated runs on real hardware; \"not yet\" means built, but not run on a "
+        "board.",
     ]
     for family, (title, blurb) in FAMILIES.items():
         members = [t for t in cfg["targets"] if t["family"] == family]
         if not members:
             continue
         out += ["", f"## {title} (`{family}`)", "", blurb, "",
-                "| Tag | Boards | OS | Arch | Docker platform | `.deb` package | RMW | Tested |",
-                "|---|---|---|---|---|---|---|---|"]
-        notes = []
+                "| Tag | Boards | OS | Arch | Docker platform | `.deb` package | Tested |",
+                "|---|---|---|---|---|---|---|"]
         for t in members:
             platform = f"`{t['platform']}`" if t["platform"] else "none (runs on the host)"
             deb = f"`{package_name(t)}`" if t["deb"] else "none"
             tested = "; ".join(f"{r['date']}, {r['board']}" for r in t["tested"]) or "not yet"
             os_ = f"{t['os']['name']} (`{t['os']['codename']}`)"
             out.append("| " + " | ".join(_cell(c) for c in (
-                f"`{t['id']}`", t["boards"], os_, f"`{t['arch']}`", platform, deb,
-                f"`{t['rmw']}`", tested,
+                f"`{t['id']}`", t["boards"], os_, f"`{t['arch']}`", platform, deb, tested,
             )) + " |")
-            for r in t["tested"]:
-                note = " ".join(r["note"].split())
-                notes.append(f"- `{t['id']}` on the {r['board']}, {r['date']}: {note}")
-        if notes:
-            out += ["", *notes]
     return "\n".join(out) + "\n"
 
 
@@ -575,7 +525,7 @@ def check_docs(cfg, paths):
 
     problems = []
     for path in _markdown_files(paths):
-        text = path.read_text(encoding="utf-8")
+        text = VERSION_PLACEHOLDER.sub("0.0.0", path.read_text(encoding="utf-8"))
         for lineno, line in enumerate(text.splitlines(), 1):
             for m in tag_re.finditer(line):
                 tag = m.group(1).split("@", 1)[0]
@@ -630,10 +580,6 @@ def main(argv=None):
     p.add_argument("--check", action="store_true",
                    help="don't write; fail if --output differs from what would be written")
 
-    p = sub.add_parser("json", help="write targets.json for the documentation site")
-    p.add_argument("--version", required=True, help="release, such as 1.1.0 or v1.1.0")
-    p.add_argument("-o", "--output", help="file to write (default: standard output)")
-
     p = sub.add_parser("check-docs",
                        help="fail on image tags or .deb names in markdown that targets.yml lacks")
     p.add_argument("paths", nargs="+", metavar="PATH",
@@ -659,8 +605,6 @@ def main(argv=None):
                     return 1
             else:
                 _write(text, args.output)
-        elif args.command == "json":
-            _write(json.dumps(site_json(cfg, args.version), indent=2) + "\n", args.output)
         elif args.command == "check-docs":
             problems = check_docs(cfg, args.paths)
             for problem in problems:

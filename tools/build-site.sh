@@ -8,7 +8,8 @@
 #
 # VERSION is the release the site documents, as v1.1.0 or 1.1.0. Without it the
 # script uses $BUILDX_VERSION, and without that the newest v* release from the
-# GitHub API. Every .deb link and file name on the site comes from it.
+# GitHub API. tools/mkdocs_hooks.py fills it into every "{{ version }}" on the
+# pages, so every .deb link and file name on the site comes from it.
 #
 # Environment:
 #   BUILDX_VERSION  the release to document, as above
@@ -17,8 +18,8 @@
 #   GITHUB_TOKEN    raises the rate limit of the release lookup
 #   SITE_DIR        output directory (default: site)
 #
-# docs/targets.json and docs/tool/ are written here and ignored by git. They
-# are left in place afterwards, so "mkdocs serve" gives a local preview.
+# docs/tool/ is written here and ignored by git. It is left in place
+# afterwards, so "mkdocs serve" gives a local preview.
 
 set -euo pipefail
 
@@ -53,7 +54,7 @@ print(max(tags, key=lambda t: [int(n) for n in re.findall(r"[0-9]+", t)], defaul
 '
 }
 
-# (a) Which release the site documents.
+# (a) Which release the site documents. The hook reads BUILDX_VERSION.
 version=${1:-${BUILDX_VERSION:-}}
 if [ -z "$version" ]; then
     note "looking up the newest v* release of $REPO"
@@ -63,16 +64,12 @@ fi
 version=${version#v}
 [[ $version =~ ^[0-9]+(\.[0-9]+)*$ ]] || die "not a version number: $version"
 note "documenting release v$version"
+export BUILDX_VERSION=$version
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-# (b) The target data the picker and the reference page are built from.
-note "writing docs/targets.json"
-python3 tools/targets.py json --version "$version" > "$tmp/targets.json"
-mv "$tmp/targets.json" docs/targets.json
-
-# (c) colcon-buildx's docs, which the site serves under tool/.
+# (b) colcon-buildx's docs, which the site serves under tool/.
 if [ -n "${CBX_DOCS_DIR:-}" ]; then
     cbx_docs=$CBX_DOCS_DIR
     note "taking colcon-buildx's docs from $cbx_docs"
@@ -86,25 +83,24 @@ case "$(cd -- "$cbx_docs" && pwd -P)" in
     "$repo_root"/docs/tool*) die "CBX_DOCS_DIR must not be inside docs/tool" ;;
 esac
 rm -rf docs/tool
-if [ -f "$cbx_docs/index.md" ]; then
+if [ -f "$cbx_docs/reference.md" ]; then
     mkdir -p docs/tool
     cp -R "$cbx_docs"/. docs/tool/
 elif [ -n "${CBX_DOCS_DIR:-}" ]; then
     # An explicit directory that isn't colcon-buildx's docs is a mistake.
-    die "no index.md in $cbx_docs: not colcon-buildx's docs directory"
+    die "no reference.md in $cbx_docs: not colcon-buildx's docs directory"
 else
-    # colcon-buildx's docs/ tree arrives with its own restructuring pull
-    # request. Until then, build the rest of the site rather than failing:
-    # the hook drops the tool/ section from the nav, and it comes back on
-    # its own once that branch is merged.
-    note "colcon-buildx has no docs/ yet; building without the tool/ section"
+    # colcon-buildx's docs/ arrives with its own pull request. Until then,
+    # build the rest of the site rather than failing: the hook drops the
+    # tool/ pages from the nav, and they come back once that branch is merged.
+    note "colcon-buildx has no docs/reference.md yet; building without its pages"
 fi
 
-# (d) No page may name an image tag or package that targets.yml doesn't have.
+# (c) No page may name an image tag or package that targets.yml doesn't have.
 note "checking the docs against targets.yml"
 python3 tools/targets.py check-docs docs README.md CONTRIBUTING.md
 
-# (e) The site itself. --strict turns every warning, a broken link above all,
+# (d) The site itself. --strict turns every warning, a broken link above all,
 # into a failed build.
 command -v mkdocs > /dev/null || die "mkdocs is missing: pip install -r docs/requirements.txt"
 note "building the site"
