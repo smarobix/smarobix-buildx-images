@@ -10,6 +10,13 @@ on:
     tags: ['v*']
   workflow_dispatch:
 
+# One run per ref at a time. A newer commit supersedes an older run rather
+# than queueing behind it, which is what let four stale dependabot runs hold
+# the self-hosted runners. Tags are exempt: a release build must finish.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
 permissions:
   contents: read
 
@@ -23,9 +30,14 @@ jobs:
     outputs:
       build: ${{ steps.matrix.outputs.build }}
       package: ${{ steps.matrix.outputs.package }}
+      any_build: ${{ steps.matrix.outputs.any_build }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The whole history: the push filter below diffs against the commit
+          # that was on the branch before, which a shallow clone would not have.
+          fetch-depth: 0
 
       # In a venv: the runner's system Python is externally managed (PEP 668)
       # and may not ship PyYAML.
@@ -44,21 +56,62 @@ jobs:
       - name: Check that the generated targets reference is current
         run: python3 tools/targets.py docs --check -o docs/reference/targets.md
 
+      # Which images this event can affect. An image's own inputs are its
+      # dockerfiles/<dir>/; the workflow, targets.yml and tools/targets.py
+      # count for all of them (tools/targets.py SHARED_INPUTS). A tag, a
+      # manual run, or a push whose previous commit is unknown builds
+      # everything, because there is nothing to compare against.
+      - name: Work out which images this change can affect
+        id: changed
+        run: |
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            # A pull request is checked out as its merge commit, whose first
+            # parent is the base branch. That holds for a fork too, where the
+            # head commit itself is not in this clone.
+            base=HEAD^1
+            head=HEAD
+          elif [ "${GITHUB_EVENT_NAME}" = "push" ] \
+              && [ "${GITHUB_REF_TYPE}" = "branch" ] \
+              && git cat-file -e "${{ github.event.before }}^{commit}" 2>/dev/null; then
+            base=${{ github.event.before }}
+            head=${{ github.sha }}
+          else
+            echo "all=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # Captured first: under bash -e a failure inside a pipe would read as
+          # "nothing changed" and silently skip every image.
+          files=$(git diff --name-only "$base" "$head")
+          printf '%s\n' "$files" > "${RUNNER_TEMP}/changed.txt"
+          echo "all=false" >> "$GITHUB_OUTPUT"
+          echo "::notice::$(printf '%s\n' "$files" | grep -c .) file(s) changed since ${base}"
+
       - name: Generate the matrices
         id: matrix
         # Assigned first: under bash -e a failing command substitution inside
         # echo would not fail the step, and every job would get an empty matrix.
         run: |
-          build=$(python3 tools/targets.py matrix build)
+          if [ "${{ steps.changed.outputs.all }}" = "true" ]; then
+            build=$(python3 tools/targets.py matrix build)
+          else
+            build=$(python3 tools/targets.py matrix build --changed "${RUNNER_TEMP}/changed.txt")
+          fi
           package=$(python3 tools/targets.py matrix package)
+          # An empty matrix would start no jobs, but the build job reads this
+          # to skip itself outright rather than reporting an empty success.
+          any_build=$(printf '%s' "${build}" | python3 -c 'import json,sys; print(str(bool(json.load(sys.stdin)["include"])).lower())')
           {
             echo "build=${build}"
             echo "package=${package}"
+            echo "any_build=${any_build}"
           } >> "$GITHUB_OUTPUT"
+          echo "::notice::${any_build} build job(s) selected"
 
   build:
     name: ${{ matrix.image }}-${{ matrix.distro }}
     needs: setup
+    # Nothing an image is built from changed, so no runner is claimed at all.
+    if: needs.setup.outputs.any_build == 'true'
     # targets.yml says why each image builds on the runner it does.
     runs-on: ${{ matrix.runs_on }}
     # A hung emulated build otherwise holds a runner for GitHub's 6 h default:
@@ -74,57 +127,23 @@ jobs:
       matrix: ${{ fromJSON(needs.setup.outputs.build) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-        with:
-          # A pull request is checked out as its merge commit, whose first
-          # parent is the base branch, so depth 2 is enough to see what the
-          # pull request changes.
-          fetch-depth: 2
-
-      # Pull requests build only the images whose inputs they change; pushes,
-      # tags and manual runs build everything. An image's inputs are its
-      # dockerfiles/<board_dir>/ directory, and this workflow, targets.yml and
-      # tools/targets.py count for all of them. A skipped image still reports
-      # success, so it never blocks a merge.
-      - name: Decide whether this image needs building
-        id: filter
-        env:
-          BOARD_DIR: ${{ matrix.board_dir }}
-        run: |
-          if [ "${GITHUB_EVENT_NAME}" != "pull_request" ]; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # Captured first: the step runs under bash -e without pipefail, so a
-          # failing git diff inside the pipe would read as "nothing changed"
-          # and skip every image while CI stays green.
-          changed=$(git diff --name-only HEAD^1 HEAD)
-          if printf '%s\n' "$changed" \
-              | grep -qE "^(dockerfiles/${BOARD_DIR}/|\.github/workflows/build-images\.yml$|targets\.yml$|tools/targets\.py$)"; then
-            echo "build=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "build=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Nothing under dockerfiles/${BOARD_DIR}/ changed; skipping this image."
-          fi
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up QEMU
-        if: steps.filter.outputs.build == 'true'
-        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Set up Docker Buildx
-        if: steps.filter.outputs.build == 'true'
-        uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0
+        uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
 
       - name: Log in to GHCR
         if: ${{ github.event_name != 'pull_request' }}
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Compute image reference
-        if: steps.filter.outputs.build == 'true'
         id: meta
         run: |
           REPO="ghcr.io/${GITHUB_REPOSITORY,,}"
@@ -136,7 +155,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Download the Yocto SDK installer
-        if: ${{ steps.filter.outputs.build == 'true' && matrix.sdk_installer }}
+        if: ${{ matrix.sdk_installer }}
         run: |
           mkdir -p sdk
           curl -fsSL -o "sdk/${{ matrix.sdk_installer }}" \
@@ -144,7 +163,6 @@ jobs:
           echo "${{ matrix.sdk_sha256 }}  sdk/${{ matrix.sdk_installer }}" | sha256sum -c -
 
       - name: Build and push
-        if: steps.filter.outputs.build == 'true'
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: dockerfiles/${{ matrix.board_dir }}
@@ -190,13 +208,13 @@ jobs:
       matrix: ${{ fromJSON(needs.setup.outputs.package) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@06116385d9baf250c9f4dcb4858b16962ea869c3 # v4.1.0
+        uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
 
       - name: Log in to GHCR
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -328,7 +346,7 @@ jobs:
           merge-multiple: true
 
       - name: Create release
-        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: dist/*
           generate_release_notes: true
