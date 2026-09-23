@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Every published image tag, described once. tools/targets.py validates this
-# file and generates from it the build and package matrices of
-# .github/workflows/build-images.yml, docs/reference/targets.md and the
-# documentation site's target picker. After a change, regenerate the page:
+# file, generates from it the build and package matrices of
+# .github/workflows/build-images.yml and docs/reference/targets.md, and checks
+# that no documentation page names a tag or package that is not here. After a
+# change, regenerate the page:
 #
 #     python3 tools/targets.py docs -o docs/reference/targets.md
 #
@@ -15,7 +16,7 @@
 #              Debian suite (rpi-armv7-trixie).
 #   distro     ROS 2 distro
 #   family     ubuntu-apt | pynq | debian | yocto-native | oe-sdk
-#   board      short group label for the site's target picker
+#   board      short board label; boards, below, is the long form
 #   boards     the boards it runs on; also the .deb Description
 #   os         the target's userspace: name and codename
 #   arch       dpkg architecture of that userspace

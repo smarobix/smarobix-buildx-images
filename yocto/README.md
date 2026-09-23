@@ -10,10 +10,10 @@ kas/                  kas files, overlaid on meta-ros's own kas configs
 meta-smrbx/           local layer: OpenSSH fix, dev container image
 ```
 
-These files are not standalone: the top-level configs include kas files from the `build` branch of [meta-ros](https://github.com/ros/meta-ros/tree/build/kas). The dev containers and SDK images built from them are published, so this directory is only needed to rebuild those; the board images are not published.
+These files are not standalone: the top-level configs include kas files from the `build` branch of [meta-ros](https://github.com/ros/meta-ros/tree/build/kas). The dev containers and SDK images built from them are published; the board images are not.
 
-**Each of the unusual settings here cost a failed build. They are commented inline; don't tidy them away.**
+**Each of the unusual settings here cost a failed build. They are explained in a comment next to them; don't tidy the comments away.**
 
-How to rebuild, and why every setting is the way it is: [Rebuild the Yocto images](https://smarobix.github.io/smarobix-buildx-images/maintain/yocto/), whose source is [`../docs/maintain/yocto.md`](../docs/maintain/yocto.md).
+Building and flashing a board image: [Yocto boards](https://smarobix.github.io/smarobix-buildx-images/guides/yocto/) ([source](../docs/guides/yocto.md)). Rebuilding and publishing the SDKs and dev containers: [Rebuild the Yocto images](https://smarobix.github.io/smarobix-buildx-images/maintain/yocto/) ([source](../docs/maintain/yocto.md)).
 
 Everything under `yocto/` is MIT-licensed, following the OpenEmbedded and meta-ros convention; see [`LICENSES/MIT.txt`](../LICENSES/MIT.txt).

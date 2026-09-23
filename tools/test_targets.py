@@ -80,33 +80,6 @@ class RealFile(unittest.TestCase):
         for t in self.cfg["targets"]:
             self.assertEqual(t["platform"] is None, t["family"] == "oe-sdk", t["id"])
 
-    def test_site_json(self):
-        code, out, _ = run("json", "--version", "v1.1.0")
-        self.assertEqual(code, 0)
-        data = json.loads(out)
-        self.assertEqual(data["version"], "1.1.0")
-        self.assertEqual(data["release_tag"], "v1.1.0")
-        self.assertEqual(data["registry"], REGISTRY)
-        self.assertEqual(
-            data["release_base_url"],
-            "https://github.com/smarobix/smarobix-buildx-images/releases/download/v1.1.0")
-        keys = {"id", "image", "distro", "family", "board", "boards", "os", "arch", "platform",
-                "rmw", "published", "tested", "deb"}
-        for t in data["targets"]:
-            self.assertEqual(set(t), keys)
-            self.assertEqual(set(t["os"]), {"name", "codename"})
-        deb = {t["id"]: t["deb"] for t in data["targets"]}["rpi-armv7-trixie-jazzy"]
-        self.assertEqual(deb["filename"], "smarobix-ros-jazzy-rpi-trixie_1.1.0_armhf.deb")
-        self.assertEqual(deb["url"], data["release_base_url"] + "/" + deb["filename"])
-        self.assertEqual(deb["name"], "smarobix-ros-jazzy-rpi-trixie")
-        self.assertEqual(deb["arch"], "armhf")
-        self.assertIsNone({t["id"]: t["deb"] for t in data["targets"]}["k26-jazzy"])
-
-    def test_bad_version(self):
-        code, _, err = run("json", "--version", "latest")
-        self.assertEqual(code, 1)
-        self.assertIn("not a release version", err)
-
     def test_docs_list_every_tag(self):
         text = targets.render_docs(self.cfg)
         self.assertTrue(text.startswith("<!-- Generated from targets.yml"))
@@ -287,6 +260,18 @@ class CheckDocs(unittest.TestCase):
             "https://github.com/x/releases/download/v1.1.0/"
             "smarobix-ros-jazzy-rpi-trixie_1.1.0_arm64.tar.gz\n"
             "| `smarobix-ros-jazzy-rpi-trixie` | arm64 |\n"), [])
+
+    def test_version_placeholder_is_read_as_a_version(self):
+        # The site build fills {{ version }} in; the name around it is still checked.
+        self.assertEqual(self.scan(
+            "wget .../v{{ version }}/smarobix-ros-jazzy-rpi-trixie_{{ version }}_arm64.deb\n"
+            "sudo apt install ./smarobix-ros-jazzy-rpi-trixie_{{version}}_arm64.deb\n"), [])
+        problems = self.scan(
+            "smarobix-ros-jazzy-rpi-trixie_{{ version }}_armhf.deb\n"
+            "smarobix-ros-jazzy-rpi-forky_{{ version }}_arm64.deb\n")
+        self.assertEqual(len(problems), 2, problems)
+        self.assertIn("not built for 'armhf'", problems[0])
+        self.assertIn("unknown package 'smarobix-ros-jazzy-rpi-forky'", problems[1])
 
     def test_placeholders_are_ignored(self):
         self.assertEqual(self.scan(

@@ -5,68 +5,31 @@ hide:
 
 # SMAROBIX buildx
 
-Cross-build your ROS 2 workspace for ARM boards on your own computer, and install ROS 2 on boards that have no official ROS 2 binaries. Every supported board, OS and ROS 2 distro is listed in the [targets reference](reference/targets.md).
+Cross-build your ROS 2 workspace for an ARM board on your own computer, and put ROS 2 on boards that have no official ROS 2 packages.
 
-smarobix-buildx-images and smarobix-colcon-buildx are two halves of one toolchain. The images repository defines every supported target — board, OS, architecture and ROS 2 distro — and publishes the Docker images and ROS 2 `.deb` packages for them. smarobix-colcon-buildx is the colcon verb that cross-builds your own workspace inside one of those images. To put ROS 2 on a board, use the images repository; to build your code for that board, use colcon-buildx.
+Two repositories make one toolchain:
 
-## Two separate jobs
+- **smarobix-buildx-images** publishes a Docker image for every supported board, OS and ROS 2 distro, and `.deb` packages of ROS 2 for the boards that have no binaries upstream.
+- **smarobix-colcon-buildx** is the `colcon buildx` verb that builds your workspace inside one of those images and copies the result to the board.
 
-Getting your code onto a board takes two jobs. They use different tools, so keep them apart.
+## Two jobs
 
-1. **Put ROS 2 on the board.** Where ROS 2 comes from depends on the board:
-    - Kria K26 with Ubuntu: the official ROS 2 apt packages from packages.ros.org. Nothing from this project goes on the board.
-    - Pynq and Raspberry Pi or other Debian boards: a `.deb` package from this project's GitHub releases.
-    - Yocto boards: ROS 2 is part of the board image, which you build from `yocto/` in this repository. Board images are not published.
-2. **Cross-build your own workspace.** Run `colcon buildx` on your computer with the image that matches the board. This is the same on every target, Pynq included.
+Getting your code onto a board takes two jobs. They are separate, and these pages keep them apart.
 
-## Pick your target
+1. **Put ROS 2 on the board.** Where it comes from depends on the board: the official apt packages (Kria K26 on Ubuntu), a `.deb` from this project (Raspberry Pi, Debian, Pynq), or the board image itself (Yocto).
+2. **Cross-build your workspace** with `colcon buildx` on your computer, in the image that matches the board. This part is the same on every board.
 
-Choose the board, then its OS and architecture where the board offers a choice, then the ROS 2 distro. The picker prints the commands for both jobs.
+## Supported boards
 
-<div id="buildx-picker" class="buildx-picker" data-targets="targets.json" markdown>
+| Board | ROS 2 on the board | Build images |
+|---|---|---|
+| Kria K26 (KV260, KR260) on Ubuntu | packages.ros.org | `k26-jazzy`, `k26-humble` |
+| Raspberry Pi and other Debian boards, 64- and 32-bit | `.deb` from the releases | `rpi-arm64-*`, `rpi-armv7-*` |
+| Pynq-Z1 and Pynq-Z2 on PYNQ v3.1.1 | `.deb` from the releases | `pynq-v3.1.1-jazzy`, `pynq-v3.1.1-humble` |
+| Kria K26 and Raspberry Pi 5 on a Yocto / meta-ros image | built into the board image | `k26-yocto-jazzy`, `rpi5-yocto-jazzy`, and the SDK images |
 
-If no picker appears here, every target, image tag and `.deb` file is also listed in the [targets reference](reference/targets.md).
+The [targets reference](reference/targets.md) lists every tag with its platform and package. ROS 2 Jazzy and Humble are supported; the Yocto images are Jazzy only.
 
-</div>
+## Start here
 
-## Where to go next
-
-<div class="grid cards" markdown>
-
--   **Tutorials**
-
-    ---
-
-    Start here. [Your first cross-build](tutorials/first-cross-build.md) on a Kria K26, [ROS 2 on a board](tutorials/ros-on-a-board.md) from a `.deb`, and [colcon buildx on a meta-ros image](tutorials/meta-ros.md).
-
--   **How-to guides**
-
-    ---
-
-    [Pick a target](how-to/pick-a-target.md), [build on an x86_64 host](how-to/build-on-x86_64.md), and [build on the board](how-to/build-on-the-board.md) itself.
-
--   **Explanation**
-
-    ---
-
-    [Why this exists](explanation/why-this-exists.md), [Ubuntu or Yocto](explanation/ubuntu-vs-yocto.md), [native or cross builds](explanation/native-vs-cross.md), and [why Cyclone DDS](explanation/rmw.md).
-
--   **Reference**
-
-    ---
-
-    [Targets](reference/targets.md), [deb packages](reference/deb-packages.md) and [tested hardware](reference/tested-hardware.md).
-
--   **colcon-buildx**
-
-    ---
-
-    The colcon verb: [overview](https://smarobix.github.io/smarobix-buildx-images/tool/), [install](https://smarobix.github.io/smarobix-buildx-images/tool/install/), [usage](https://smarobix.github.io/smarobix-buildx-images/tool/usage/) and [configuration](https://smarobix.github.io/smarobix-buildx-images/tool/config/).
-
--   **Maintainers**
-
-    ---
-
-    [Add a board](maintain/add-a-board.md), rebuild the images, and cut a release. Start at the [maintainer overview](maintain/index.md).
-
-</div>
+[Set up your computer](start/setup.md), then follow the four steps in order. Pick your board in the tabs once; the choice follows you through the site.

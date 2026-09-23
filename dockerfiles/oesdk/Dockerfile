@@ -3,8 +3,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Cross-build image built from a meta-ros Yocto SDK, for any board meta-ros
-# builds for. Which of them have run on hardware is recorded at
-# https://smarobix.github.io/smarobix-buildx-images/reference/tested-hardware/
+# builds for. The published ones are listed at
+# https://smarobix.github.io/smarobix-buildx-images/reference/targets/
 #
 # Unlike the other images in this repo, this one does not build natively as the
 # target architecture. It carries a cross toolchain plus the target sysroot, and
