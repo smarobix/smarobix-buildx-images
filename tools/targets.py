@@ -427,6 +427,35 @@ def build_matrix(cfg):
     return {"include": include}
 
 
+# Inputs that belong to every image rather than to one of them. A change to
+# any of these rebuilds the lot: the workflow decides how each image is built,
+# targets.yml decides what is built, and targets.py turns the one into the
+# other.
+SHARED_INPUTS = (
+    ".github/workflows/build-images.yml",
+    "targets.yml",
+    "tools/targets.py",
+)
+
+
+def select_changed(matrix, changed):
+    """Narrow a build matrix to the images a list of changed paths affects.
+
+    `changed` is an iterable of repository-relative paths. Returns the matrix
+    unchanged when one of SHARED_INPUTS is among them, because then every
+    image's inputs have changed. An image's own inputs are its
+    dockerfiles/<board_dir>/ directory.
+    """
+    changed = [c.strip() for c in changed if c.strip()]
+    if any(c in SHARED_INPUTS for c in changed):
+        return matrix
+    include = [
+        entry for entry in matrix["include"]
+        if any(c.startswith(f"dockerfiles/{entry['board_dir']}/") for c in changed)
+    ]
+    return {"include": include}
+
+
 def package_matrix(cfg):
     """The package job's matrix: one entry per target with a deb block."""
     include = []
@@ -574,6 +603,9 @@ def main(argv=None):
 
     p = sub.add_parser("matrix", help="print a job matrix of build-images.yml as JSON")
     p.add_argument("job", choices=("build", "package"))
+    p.add_argument("--changed", metavar="FILE",
+                   help="file listing the changed paths, one per line ('-' for standard "
+                        "input); the build matrix then holds only the images they affect")
 
     p = sub.add_parser("docs", help="write docs/reference/targets.md")
     p.add_argument("-o", "--output", help="file to write (default: standard output)")
@@ -590,6 +622,12 @@ def main(argv=None):
         cfg = load(args.file)
         if args.command == "matrix":
             matrix = build_matrix(cfg) if args.job == "build" else package_matrix(cfg)
+            # The package job runs on a tag and packages everything, so only
+            # the build matrix narrows.
+            if args.changed and args.job == "build":
+                text = sys.stdin.read() if args.changed == "-" \
+                    else Path(args.changed).read_text(encoding="utf-8")
+                matrix = select_changed(matrix, text.splitlines())
             # One line: the workflow passes it through $GITHUB_OUTPUT.
             print(json.dumps(matrix, separators=(",", ":")))
         elif args.command == "docs":

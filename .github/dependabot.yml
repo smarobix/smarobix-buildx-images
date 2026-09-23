@@ -1,29 +1,51 @@
 # SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
 # SPDX-License-Identifier: Apache-2.0
 
+# Every update is grouped, so a round of bumps arrives as one pull request
+# rather than one per dependency. The reason is the build: a change to
+# build-images.yml is an input of every image, so each action bump on its own
+# used to queue the full matrix on two self-hosted runners. One grouped pull
+# request costs one run.
 version: 2
-
-# The Dockerfiles pin their base images by digest, so a base moving upstream no
-# longer invalidates every cached layer behind our backs. These updates keep the
-# pins fresh: Dependabot opens a pull request per base image, which the path
-# filter turns into a build of just that image, and the rebuild lands on main
-# with a cache export instead of surprising the next unrelated pull request.
 updates:
+  # The base images each Dockerfile pins by digest. One entry per directory is
+  # how the docker ecosystem works; the group folds a directory's Dockerfiles
+  # into a single pull request.
   - package-ecosystem: docker
     directory: /dockerfiles/k26
     schedule:
       interval: weekly
+    open-pull-requests-limit: 2
+    groups:
+      k26-base-images:
+        patterns: ["*"]
+
   - package-ecosystem: docker
     directory: /dockerfiles/pynq-z1
     schedule:
       interval: weekly
+    open-pull-requests-limit: 2
+    groups:
+      pynq-base-images:
+        patterns: ["*"]
+
   - package-ecosystem: docker
     directory: /dockerfiles/rpi
     schedule:
       interval: weekly
-  # dockerfiles/oesdk builds on our own published dev container, which moves
-  # only when we rebuild it with bitbake, so it stays on a tag.
+    open-pull-requests-limit: 2
+    groups:
+      rpi-base-images:
+        patterns: ["*"]
+
+  # dockerfiles/oesdk builds on an image of ours, passed as a build argument
+  # from targets.yml, so there is nothing here for dependabot to bump.
+
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    open-pull-requests-limit: 2
+    groups:
+      actions:
+        patterns: ["*"]

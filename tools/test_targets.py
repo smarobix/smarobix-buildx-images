@@ -306,5 +306,41 @@ class CheckDocs(unittest.TestCase):
             targets.check_docs(self.cfg, [Path(self.dir.name) / "missing.md"])
 
 
+class SelectChanged(unittest.TestCase):
+    """The build matrix narrows to the images a change actually affects."""
+
+    def setUp(self):
+        self.matrix = targets.build_matrix(targets.validate(minimal(), check_files=False))
+
+    def images(self, *changed):
+        narrowed = targets.select_changed(self.matrix, changed)
+        return sorted(e["image"] for e in narrowed["include"])
+
+    def test_a_shared_input_keeps_every_image(self):
+        for shared in targets.SHARED_INPUTS:
+            with self.subTest(shared=shared):
+                self.assertEqual(self.images(shared),
+                                 sorted(e["image"] for e in self.matrix["include"]))
+
+    def test_a_dockerfile_keeps_only_its_own_directory(self):
+        entry = self.matrix["include"][0]
+        got = self.images(f"dockerfiles/{entry['board_dir']}/Dockerfile.{entry['distro']}")
+        self.assertIn(entry["image"], got)
+        for other in self.matrix["include"]:
+            if other["board_dir"] != entry["board_dir"]:
+                self.assertNotIn(other["image"], got)
+
+    def test_unrelated_paths_leave_nothing_to_build(self):
+        self.assertEqual(self.images("docs/index.md", "mkdocs.yml", "README.md"), [])
+
+    def test_a_directory_prefix_is_not_enough(self):
+        # dockerfiles/rpi-extra/ must not match the rpi entry.
+        entry = self.matrix["include"][0]
+        self.assertEqual(self.images(f"dockerfiles/{entry['board_dir']}-extra/Dockerfile"), [])
+
+    def test_blank_lines_are_ignored(self):
+        self.assertEqual(self.images("", "   ", "\n"), [])
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
