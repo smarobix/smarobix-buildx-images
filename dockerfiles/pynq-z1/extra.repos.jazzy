@@ -1,8 +1,15 @@
 repositories:
+  # Upstream has no jazzy branch: rosdistro's jazzy entry for vision_opencv
+  # names rolling as its source, so a build picked up whatever rolling held
+  # that day. Pinned to the commit rolling has held since December 2025,
+  # which is what the published images were built from, so a rebuild
+  # reproduces them. The jazzy release tag, 4.1.0, is thirteen commits
+  # behind this and predates the CMake deprecation fix (#551) that the newer
+  # toolchains need, so it is not the pin. Bump this deliberately.
   vision_opencv:
     type: git
     url: https://github.com/ros-perception/vision_opencv.git
-    version: rolling
+    version: 50f6f1feccc65dd2ef87f863cb812a8aa0789062
   vision_msgs:
     type: git
     url: https://github.com/ros-perception/vision_msgs.git

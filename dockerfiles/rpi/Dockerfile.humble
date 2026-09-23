@@ -30,8 +30,8 @@
 # debian:${SUITE}-slim; SUITE picks between them, and BuildKit only pulls the
 # one it needs.
 ARG SUITE=trixie
-FROM debian:trixie-slim@sha256:d7e12182ce18b85b93007c1dedf31f2d29e01ccf3182cc4017c709b6259bc132 AS base-trixie
-FROM debian:bookworm-slim@sha256:88200866dfff7ea7f5cbcb6ec7c8a701889efe6fe859fe64d6990e4b07ea4171 AS base-bookworm
+FROM debian:trixie-slim@sha256:a99cfc517144bc59b1978475ec53b46ecabec7e43635402ee5b77cc54cd1b20a AS base-trixie
+FROM debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251 AS base-bookworm
 FROM base-${SUITE}
 
 ARG SUITE=trixie
@@ -139,17 +139,9 @@ RUN ros-build \
         trajectory_msgs \
         visualization_msgs
 
-# ============================================================
-# Phase 2: RMW layer
-#   A no-op for the install tree: Phase 1 already built rmw_cyclonedds_cpp,
-#   because rclcpp pulls in rmw_implementation, which build-depends on every
-#   RMW in the source tree. This step only recompiles that chain. It stays
-#   because removing it would change the cache key of every later layer.
-# ============================================================
-RUN ros-build rmw_cyclonedds_cpp
 
 # ============================================================
-# Phase 3: Remaining ros_base packages
+# Phase 2: Remaining ros_base packages
 # ============================================================
 RUN ros-build \
         ros2topic \
@@ -188,7 +180,7 @@ RUN ros-build \
         rclcpp_lifecycle
 
 # ============================================================
-# Phase 4: Extra packages — edit freely, phases 1-3 stay cached
+# Phase 3: Extra packages — edit freely, phases 1-2 stay cached
 # ============================================================
 RUN ros-build \
         cv_bridge \

@@ -13,9 +13,11 @@ cd "/tmp/ros2_${ROS_DISTRO}"
 # over a gigabyte in cc1plus, so one job per core gets the compiler OOM-killed
 # on any machine with less than ~2 GB per core.
 #
-# ROS_BUILD_WORKERS overrides the calculation. CI needs it: several matrix jobs
-# share one runner, and each build otherwise sizes itself against the whole
-# machine and collectively oversubscribes it by the number of concurrent jobs.
+# ROS_BUILD_WORKERS overrides the calculation. CI does not set it today; the
+# hook is here for the case it was written for, where several matrix jobs share
+# one runner and each build otherwise sizes itself against the whole machine,
+# so together they oversubscribe it. Pass it per target through build.args in
+# targets.yml if that starts to bite.
 #
 # MAKEFLAGS pins each package to a single make job, so the worker count is the
 # whole story rather than being multiplied by per-package make parallelism.
