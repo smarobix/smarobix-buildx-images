@@ -1,0 +1,452 @@
+# SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+# SPDX-License-Identifier: Apache-2.0
+
+# Every published image tag, described once. tools/targets.py validates this
+# file and generates from it the build and package matrices of
+# .github/workflows/build-images.yml, docs/reference/targets.md and the
+# documentation site's target picker. After a change, regenerate the page:
+#
+#     python3 tools/targets.py docs -o docs/reference/targets.md
+#
+# A target:
+#   id         the GHCR tag, always <image>-<distro>
+#   image      the tag prefix. It carries whatever changes the ABI: the
+#              downstream release (pynq-v3.1.1), or the ISA baseline and the
+#              Debian suite (rpi-armv7-trixie).
+#   distro     ROS 2 distro
+#   family     ubuntu-apt | pynq | debian | yocto-native | oe-sdk
+#   board      short group label for the site's target picker
+#   boards     the boards it runs on; also the .deb Description
+#   os         the target's userspace: name and codename
+#   arch       dpkg architecture of that userspace
+#   platform   Docker platform of the image; null for oe-sdk, which runs on
+#              the host
+#   rmw        recommended RMW, printed by the .deb postinst. Cyclone DDS
+#              everywhere, for its smaller memory footprint and so that there
+#              is one recommendation. Both it and Fast DDS are built in.
+#   published  ci (the default) or manual, for the images bitbake builds
+#              outside CI (build: null)
+#   build      how CI builds the image (below), or null
+#   deb        the .deb and .tar.gz the package job cuts on a v* tag (below);
+#              absent for images that ship none
+#   tested     dated runs on real hardware, [{board, date, note}]. Empty means
+#              built, but not yet run on a board.
+#
+# build:
+#   dir         the build context, dockerfiles/<dir>. A pull request builds the
+#               image only when something under it changes, or when this
+#               file, tools/targets.py or the workflow does.
+#   dockerfile  the Dockerfile in that directory
+#   runs_on     runner labels. arm64 images build on the native arm64 runner.
+#               Emulated arm64 (qemu-aarch64) silently loses files from the
+#               colcon merge-install prefix partway through a large source
+#               build, which surfaces as a dependent package failing to find
+#               an already-installed library such as rcutils. armv7 emulation
+#               is unaffected and stays on the x86_64 workstations.
+#   args        Docker build args, NAME: "value" (quote numbers: 3.10 is a float)
+#   platform    oe-sdk only: the platform to build for
+#   sdk         oe-sdk only: the Yocto SDK to install (see that group below)
+#
+# deb:
+#   pkg            the package is smarobix-ros-<distro>-<pkg>. pkg omits the
+#                  architecture, because dpkg already carries it in the
+#                  filename and the control Architecture field (from arch).
+#   target         what the tree was built against, for the Description
+#   Shared-library dependencies are NOT listed here: they are derived from the
+#   built tree by .github/scripts/compute-depends.sh, so they cannot drift from
+#   what the binaries actually link against. The three fields below cover only
+#   what ELF inspection cannot see:
+#   depends_extra  Python modules without which `ros2` will not run
+#   recommends     optional features (cv_bridge's Python bindings, sros2,
+#                  ros2doctor): apt installs these by default, but the tree
+#                  works without them
+#   suggests       toolchain for building ROS packages on the board,
+#                  space-separated so the postinst can paste it into an apt
+#                  command; the control field's comma form is derived from it
+
+repository: smarobix/smarobix-buildx-images
+
+# Dependency lists shared by the .deb targets, used below as *aliases.
+# targets.py ignores top-level keys that start with x-.
+x-deb:
+  # Humble additionally needs netifaces.
+  depends-jazzy: &depends_jazzy "python3, python3-argcomplete, python3-lark, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
+  depends-humble: &depends_humble "python3, python3-argcomplete, python3-lark, python3-netifaces, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
+  recommends: &recommends "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
+  # Debian bookworm and trixie and Ubuntu jammy ship python3-empy 3.3.4,
+  # which rosidl supports. ros-dev-tools comes from the ROS 2 apt source,
+  # which the postinst tells the user to add; for these suites that source
+  # carries no ros-<distro>-* packages, so nothing collides with /opt/ros.
+  suggests: &suggests "build-essential cmake git python3-dev python3-empy ros-dev-tools"
+
+targets:
+  # Kria K26 on Ubuntu. The official ROS 2 apt packages exist for Ubuntu on
+  # arm64, so the board gets ROS from packages.ros.org and these images are
+  # only the cross-build environment. No .deb.
+  - id: k26-jazzy
+    image: k26
+    distro: jazzy
+    family: ubuntu-apt
+    board: Kria K26 / Ubuntu
+    boards: Kria K26 (KV260 / KR260)
+    os: {name: Ubuntu 24.04, codename: noble}
+    arch: arm64
+    platform: linux/arm64
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: k26
+      dockerfile: Dockerfile.jazzy
+      runs_on: [self-hosted, ARM64]
+    tested: []
+
+  - id: k26-humble
+    image: k26
+    distro: humble
+    family: ubuntu-apt
+    board: Kria K26 / Ubuntu
+    boards: Kria K26 (KV260 / KR260)
+    os: {name: Ubuntu 22.04, codename: jammy}
+    arch: arm64
+    platform: linux/arm64
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: k26
+      dockerfile: Dockerfile.humble
+      runs_on: [self-hosted, ARM64]
+    tested: []
+
+  # PYNQ. Pynq-Z1 and Pynq-Z2 share the Zynq-7020, so one tree runs on both.
+  # The base image matches the PYNQ v3.1.1 SD-card image, so the version is
+  # in the tag and the package name: a new PYNQ release gets new entries
+  # next to these rather than replacing them.
+  - id: pynq-v3.1.1-jazzy
+    image: pynq-v3.1.1
+    distro: jazzy
+    family: pynq
+    board: Pynq-Z1 / Pynq-Z2
+    boards: Xilinx Zynq-7020 boards (Pynq-Z1 / Pynq-Z2)
+    os: {name: "PYNQ v3.1.1, Ubuntu 22.04", codename: jammy}
+    arch: armhf
+    platform: linux/arm/v7
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: pynq-z1
+      dockerfile: Dockerfile.jazzy
+      runs_on: [self-hosted, X64]
+    deb:
+      pkg: pynq-v3.1.1
+      target: PYNQ v3.1.1 (Ubuntu 22.04)
+      depends_extra: *depends_jazzy
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  - id: pynq-v3.1.1-humble
+    image: pynq-v3.1.1
+    distro: humble
+    family: pynq
+    board: Pynq-Z1 / Pynq-Z2
+    boards: Xilinx Zynq-7020 boards (Pynq-Z1 / Pynq-Z2)
+    os: {name: "PYNQ v3.1.1, Ubuntu 22.04", codename: jammy}
+    arch: armhf
+    platform: linux/arm/v7
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: pynq-z1
+      dockerfile: Dockerfile.humble
+      runs_on: [self-hosted, X64]
+    deb:
+      pkg: pynq-v3.1.1
+      target: PYNQ v3.1.1 (Ubuntu 22.04)
+      depends_extra: *depends_humble
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  # Raspberry Pi OS / Debian. Debian publishes no ROS binaries for any suite,
+  # so arm64 builds from source too. SUITE and PY_VER must agree (trixie and
+  # 3.13, bookworm and 3.11), and SUITE must equal os.codename. The image
+  # name carries the ISA baseline rather than a board model: nothing here is
+  # Pi-specific, and the armv7 build runs on any ARMv7 board of that suite,
+  # not only on a Pi 5.
+  - id: rpi-arm64-trixie-jazzy
+    image: rpi-arm64-trixie
+    distro: jazzy
+    family: debian
+    board: Raspberry Pi / Debian
+    boards: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
+    os: {name: Raspberry Pi OS 13 / Debian 13, codename: trixie}
+    arch: arm64
+    platform: linux/arm64
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: rpi
+      dockerfile: Dockerfile.jazzy
+      runs_on: [self-hosted, ARM64]
+      args: {SUITE: trixie, PY_VER: "3.13"}
+    deb:
+      pkg: rpi-trixie
+      target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
+      depends_extra: *depends_jazzy
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  - id: rpi-arm64-trixie-humble
+    image: rpi-arm64-trixie
+    distro: humble
+    family: debian
+    board: Raspberry Pi / Debian
+    boards: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
+    os: {name: Raspberry Pi OS 13 / Debian 13, codename: trixie}
+    arch: arm64
+    platform: linux/arm64
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: rpi
+      dockerfile: Dockerfile.humble
+      runs_on: [self-hosted, ARM64]
+      args: {SUITE: trixie, PY_VER: "3.13"}
+    deb:
+      pkg: rpi-trixie
+      target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
+      depends_extra: *depends_humble
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  - id: rpi-armv7-trixie-jazzy
+    image: rpi-armv7-trixie
+    distro: jazzy
+    family: debian
+    board: Raspberry Pi / Debian
+    boards: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
+    os: {name: Raspberry Pi OS 13 / Debian 13, codename: trixie}
+    arch: armhf
+    platform: linux/arm/v7
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: rpi
+      dockerfile: Dockerfile.jazzy
+      runs_on: [self-hosted, X64]
+      args: {SUITE: trixie, PY_VER: "3.13"}
+    deb:
+      pkg: rpi-trixie
+      target: Raspberry Pi OS 13 / Debian 13 (trixie), armhf
+      depends_extra: *depends_jazzy
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  - id: rpi-armv7-trixie-humble
+    image: rpi-armv7-trixie
+    distro: humble
+    family: debian
+    board: Raspberry Pi / Debian
+    boards: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
+    os: {name: Raspberry Pi OS 13 / Debian 13, codename: trixie}
+    arch: armhf
+    platform: linux/arm/v7
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: rpi
+      dockerfile: Dockerfile.humble
+      runs_on: [self-hosted, X64]
+      args: {SUITE: trixie, PY_VER: "3.13"}
+    deb:
+      pkg: rpi-trixie
+      target: Raspberry Pi OS 13 / Debian 13 (trixie), armhf
+      depends_extra: *depends_humble
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  - id: rpi-arm64-bookworm-jazzy
+    image: rpi-arm64-bookworm
+    distro: jazzy
+    family: debian
+    board: Raspberry Pi / Debian
+    boards: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
+    os: {name: Raspberry Pi OS 12 / Debian 12, codename: bookworm}
+    arch: arm64
+    platform: linux/arm64
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: rpi
+      dockerfile: Dockerfile.jazzy
+      runs_on: [self-hosted, ARM64]
+      args: {SUITE: bookworm, PY_VER: "3.11"}
+    deb:
+      pkg: rpi-bookworm
+      target: Raspberry Pi OS 12 / Debian 12 (bookworm), arm64
+      depends_extra: *depends_jazzy
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  - id: rpi-arm64-bookworm-humble
+    image: rpi-arm64-bookworm
+    distro: humble
+    family: debian
+    board: Raspberry Pi / Debian
+    boards: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
+    os: {name: Raspberry Pi OS 12 / Debian 12, codename: bookworm}
+    arch: arm64
+    platform: linux/arm64
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: rpi
+      dockerfile: Dockerfile.humble
+      runs_on: [self-hosted, ARM64]
+      args: {SUITE: bookworm, PY_VER: "3.11"}
+    deb:
+      pkg: rpi-bookworm
+      target: Raspberry Pi OS 12 / Debian 12 (bookworm), arm64
+      depends_extra: *depends_humble
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  - id: rpi-armv7-bookworm-jazzy
+    image: rpi-armv7-bookworm
+    distro: jazzy
+    family: debian
+    board: Raspberry Pi / Debian
+    boards: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
+    os: {name: Raspberry Pi OS 12 / Debian 12, codename: bookworm}
+    arch: armhf
+    platform: linux/arm/v7
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: rpi
+      dockerfile: Dockerfile.jazzy
+      runs_on: [self-hosted, X64]
+      args: {SUITE: bookworm, PY_VER: "3.11"}
+    deb:
+      pkg: rpi-bookworm
+      target: Raspberry Pi OS 12 / Debian 12 (bookworm), armhf
+      depends_extra: *depends_jazzy
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  - id: rpi-armv7-bookworm-humble
+    image: rpi-armv7-bookworm
+    distro: humble
+    family: debian
+    board: Raspberry Pi / Debian
+    boards: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
+    os: {name: Raspberry Pi OS 12 / Debian 12, codename: bookworm}
+    arch: armhf
+    platform: linux/arm/v7
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: rpi
+      dockerfile: Dockerfile.humble
+      runs_on: [self-hosted, X64]
+      args: {SUITE: bookworm, PY_VER: "3.11"}
+    deb:
+      pkg: rpi-bookworm
+      target: Raspberry Pi OS 12 / Debian 12 (bookworm), armhf
+      depends_extra: *depends_humble
+      recommends: *recommends
+      suggests: *suggests
+    tested: []
+
+  # Yocto / meta-ros dev containers: an aarch64 OCI image of the board's own
+  # userspace plus compilers and -dev packages, built by bitbake from the
+  # same configuration as the board image (yocto/, recipe ros-dev-container).
+  # Bitbake runs outside CI, so these are pushed by hand and have no build.
+  - id: k26-yocto-jazzy
+    image: k26-yocto
+    distro: jazzy
+    family: yocto-native
+    board: Kria K26 / Yocto
+    boards: Kria K26 (KV260 / KR260) running the Yocto image built from yocto/
+    os: {name: Yocto / meta-ros, codename: scarthgap}
+    arch: arm64
+    platform: linux/arm64
+    rmw: rmw_cyclonedds_cpp
+    published: manual
+    build: null
+    tested:
+      # yocto/README.md, "The dev container".
+      - board: KV260
+        date: "2026-09-13"
+        note: >-
+          An interface package and an rclcpp node that depends on it, built in
+          this container, ran on the KV260 (talker at 2 Hz, 26.5 MB RSS).
+
+  - id: rpi5-yocto-jazzy
+    image: rpi5-yocto
+    distro: jazzy
+    family: yocto-native
+    board: Raspberry Pi 5 / Yocto
+    boards: Raspberry Pi 5 running the Yocto image built from yocto/
+    os: {name: Yocto / meta-ros, codename: scarthgap}
+    arch: arm64
+    platform: linux/arm64
+    rmw: rmw_cyclonedds_cpp
+    published: manual
+    build: null
+    tested: []
+
+  # Yocto / meta-ros: the SDK packaged as a cross-build image, on top of the
+  # board's bitbake-built dev container (sdk.base_image). The SDK installer is
+  # a bitbake output, published as an asset of the sdk.release release and
+  # pinned by checksum; the bitbake builds themselves run outside CI
+  # (yocto/README.md). A new SDK means a new release and new sdk values.
+  # The image runs on the host, not as the target, so platform is null. The
+  # SDK's host tools are aarch64 binaries, so it is built for linux/arm64 only.
+  - id: k26-oesdk-jazzy
+    image: k26-oesdk
+    distro: jazzy
+    family: oe-sdk
+    board: Kria K26 / Yocto
+    boards: Kria K26 (KV260 / KR260) running the Yocto image built from yocto/
+    os: {name: Yocto / meta-ros, codename: scarthgap}
+    arch: arm64
+    platform: null
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: oesdk
+      dockerfile: Dockerfile
+      runs_on: [self-hosted, ARM64]
+      platform: linux/arm64
+      sdk:
+        base_image: k26-yocto-jazzy
+        release: yocto-sdk-jazzy-2026.09.15
+        installer: oecore-ros2-image-sdktest-jazzy-aarch64-cortexa72-cortexa53-k26-smk-kv-sdt-toolchain-nodistro.0.sh
+        sha256: 99529c2bdc3a212585fcd57916865e81178d06e7d3be7e7d396a46a453213335
+        env_setup: environment-setup-cortexa72-cortexa53-oe-linux
+    tested:
+      # README.md, "Cross-compile image from the SDK".
+      - board: KV260
+        date: "2026-09-15"
+        note: >-
+          Binaries built with the same SDK, installed on an Ubuntu base rather
+          than on the dev container, ran unmodified on a KV260 booted from the
+          matching Yocto image.
+
+  - id: rpi5-oesdk-jazzy
+    image: rpi5-oesdk
+    distro: jazzy
+    family: oe-sdk
+    board: Raspberry Pi 5 / Yocto
+    boards: Raspberry Pi 5 running the Yocto image built from yocto/
+    os: {name: Yocto / meta-ros, codename: scarthgap}
+    arch: arm64
+    platform: null
+    rmw: rmw_cyclonedds_cpp
+    build:
+      dir: oesdk
+      dockerfile: Dockerfile
+      runs_on: [self-hosted, ARM64]
+      platform: linux/arm64
+      sdk:
+        base_image: rpi5-yocto-jazzy
+        release: yocto-sdk-jazzy-2026.09.15
+        installer: oecore-ros2-image-sdktest-jazzy-aarch64-cortexa76-raspberrypi5-toolchain-nodistro.0.sh
+        sha256: a2e7e4dc2a57d9073bdaa67571fce682a112fe6a97039312e917cf517a0dd4b4
+        env_setup: environment-setup-cortexa76-oe-linux
+    tested: []

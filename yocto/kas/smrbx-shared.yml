@@ -5,8 +5,10 @@ header:
   version: 14
 
 repos:
-  # Local layer from this repository (yocto/meta-smrbx), synced to the build
-  # host; /work is the kas container's view of the build host's ~/yocto.
+  # Local layer from this repository (yocto/meta-smrbx), copied into the work
+  # directory. kas runs in a container with the work directory mounted at
+  # /work, which is where this path and DL_DIR/SSTATE_DIR below point; adjust
+  # them if you run kas differently.
   meta-smrbx:
     path: "/work/buildx-yocto/meta-smrbx"
 
@@ -16,7 +18,7 @@ local_conf_header:
     SSTATE_DIR = "/work/sstate"
     BB_NUMBER_THREADS = "12"
     PARALLEL_MAKE = "-j 12"
-    # keep the wic and the SDK where we can collect them
+    # board images also as a compressed wic plus its bmap, for bmaptool
     IMAGE_FSTYPES:append = " wic.bz2 wic.bmap"
 
     # ros-sdk-env is what sets OE_CMAKE_TOOLCHAIN_FILE, derives PYTHON_SOABI from

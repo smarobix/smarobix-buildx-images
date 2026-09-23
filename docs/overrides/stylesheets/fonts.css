@@ -1,0 +1,105 @@
+/*
+ * SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+ * SPDX-License-Identifier: Apache-2.0
+ *
+ * The brand faces, served from this site.
+ *
+ * brand-core's docs theme imports Syne from Google Fonts. That is the one part
+ * of it this site does not copy: a font CDN sends every visitor's IP address to
+ * a third party, which for a German company is a legal question rather than a
+ * performance one. The files come from brand-core/fonts/ and are licensed under
+ * the SIL Open Font License, whose texts sit beside them.
+ *
+ * Load order matters: this file comes before extra.css in mkdocs.yml, so the
+ * families exist before the theme asks for them.
+ */
+
+/* Headlines. Syne widens as it gets heavier, so the site uses Regular through
+   SemiBold for headings and keeps ExtraBold for display sizes only. */
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../assets/fonts/Syne-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../assets/fonts/Syne-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("../../assets/fonts/Syne-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Syne";
+  font-style: normal;
+  font-weight: 800;
+  font-display: swap;
+  src: url("../../assets/fonts/Syne-ExtraBold.woff2") format("woff2");
+}
+
+/* Body copy. */
+@font-face {
+  font-family: "Work Sans";
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+  src: url("../../assets/fonts/WorkSans-Light.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Work Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../assets/fonts/WorkSans-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Work Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../../assets/fonts/WorkSans-Medium.woff2") format("woff2");
+}
+
+/* Neither brand family ships a 700, so a browser asked for `bold` synthesises
+   one. Mapping 700 to SemiBold keeps <strong> and Material's own bold rules on
+   a real face. */
+@font-face {
+  font-family: "Work Sans";
+  font-style: normal;
+  font-weight: 600 700;
+  font-display: swap;
+  src: url("../../assets/fonts/WorkSans-SemiBold.woff2") format("woff2");
+}
+
+/* Code. */
+@font-face {
+  font-family: "Roboto Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../../assets/fonts/RobotoMono-Regular.woff2") format("woff2");
+}
+
+/* mkdocs.yml sets `font: false`, so Material leaves these unset and falls back
+   to the system stack. The brand families are named here instead. */
+:root {
+  --md-text-font-family: "Work Sans", -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  --md-code-font-family: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo,
+    monospace;
+  --md-text-font: "Work Sans";
+  --md-code-font: "Roboto Mono";
+}

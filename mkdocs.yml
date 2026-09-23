@@ -1,0 +1,139 @@
+# SPDX-FileCopyrightText: 2025-2026 SMAROBIX GmbH
+# SPDX-License-Identifier: Apache-2.0
+
+# The documentation site for smarobix-buildx-images and smarobix-colcon-buildx.
+# Build it with tools/build-site.sh, not with a bare "mkdocs build": the script
+# first writes docs/targets.json and copies colcon-buildx's docs/ to docs/tool/,
+# and the nav below refers to both. After one run of the script,
+# "mkdocs serve" works for a local preview.
+
+site_name: SMAROBIX buildx
+site_url: https://smarobix.github.io/smarobix-buildx-images/
+site_description: >-
+  Cross-build ROS 2 workspaces for ARM boards with colcon buildx, and put ROS 2
+  on boards that have no official binaries.
+site_author: SMAROBIX GmbH
+copyright: Copyright 2025-2026 SMAROBIX GmbH
+
+repo_name: smarobix/smarobix-buildx-images
+repo_url: https://github.com/smarobix/smarobix-buildx-images
+# Pages under tool/ come from the colcon-buildx repository. tools/mkdocs_hooks.py
+# points their edit links there, and drops the links of generated pages.
+edit_uri: edit/main/docs/
+
+# requirements.txt is for the build, not a page. docs/.gitignore is a dot file,
+# which MkDocs leaves out anyway.
+exclude_docs: |
+  requirements.txt
+
+# Under --strict every warning fails the build. Broken anchors and links that
+# are neither a page nor a file are raised to warnings, because both read fine
+# on GitHub and only break on the site.
+validation:
+  links:
+    anchors: warn
+    unrecognized_links: warn
+
+hooks:
+  - tools/mkdocs_hooks.py
+
+theme:
+  name: material
+  # The SMAROBIX docs theme, copied from brand-core/templates/docs-theme at
+  # commit b2b89ed: stylesheets/extra.css, javascripts/extra.js and the header
+  # partial carrying the lockup. brand-core owns those rules; this site only
+  # names its own product in the header and adds the picker's styles.
+  custom_dir: docs/overrides
+  # No web fonts from a CDN: it would send every visitor's IP address to a
+  # third party. stylesheets/fonts.css serves the brand faces from this site.
+  font: false
+  # Dark only, which is the brand's default for a docs site: the reader here is
+  # a robotics engineer and the reference is the product's own documentation.
+  # Material needs a primary and an accent from its own list; extra.css paints
+  # over both with the brand pink and orange.
+  palette:
+    scheme: slate
+    primary: custom
+    accent: custom
+  logo: assets/mark.svg
+  favicon: assets/mark.svg
+  features:
+    - navigation.sections
+    - navigation.top
+    - search.highlight
+    - search.suggest
+    - content.code.copy
+    - content.action.edit
+
+plugins:
+  - search
+
+markdown_extensions:
+  - tables
+  - toc:
+      permalink: true
+      # GitHub-style heading anchors, so a "#section" link that works on
+      # GitHub also works on the site.
+      slugify: !!python/object/apply:pymdownx.slugs.slugify
+        kwds:
+          case: lower
+  - admonition
+  - attr_list
+  - md_in_html
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences
+
+extra_css:
+  # fonts.css first: it declares the families extra.css then asks for.
+  - stylesheets/fonts.css
+  - stylesheets/extra.css
+  - assets/picker.css
+
+extra_javascript:
+  - javascripts/extra.js
+  - assets/picker.js
+
+nav:
+  - Home: index.md
+  - Tutorials:
+      - Your first cross-build: tutorials/first-cross-build.md
+      - ROS 2 on a board: tutorials/ros-on-a-board.md
+      - colcon buildx on a meta-ros image: tutorials/meta-ros.md
+  - How-to guides:
+      - Pick a target: how-to/pick-a-target.md
+      - Build on an x86_64 host: how-to/build-on-x86_64.md
+      - Build on the board: how-to/build-on-the-board.md
+  - Explanation:
+      - Why this exists: explanation/why-this-exists.md
+      - Ubuntu or Yocto: explanation/ubuntu-vs-yocto.md
+      - Native or cross builds: explanation/native-vs-cross.md
+      - Why Cyclone DDS: explanation/rmw.md
+  - Reference:
+      - Targets: reference/targets.md
+      - Deb packages: reference/deb-packages.md
+      - Tested hardware: reference/tested-hardware.md
+  # Copied from smarobix-colcon-buildx's docs/ by tools/build-site.sh.
+  - colcon-buildx:
+      - Overview: tool/index.md
+      - Install: tool/install.md
+      - Usage: tool/usage.md
+      - Configuration: tool/config.md
+      - Backends: tool/backends.md
+      - Sync and deploy: tool/sync-and-deploy.md
+      - Yocto targets: tool/yocto-targets.md
+      - Troubleshooting: tool/troubleshooting.md
+      - Development: tool/development.md
+      - Reference:
+          - Command line: tool/reference/cli.md
+          - Configuration keys: tool/reference/config-keys.md
+          - Image labels: tool/reference/labels.md
+  - Maintainers:
+      - Overview: maintain/index.md
+      - Add a board: maintain/add-a-board.md
+      - Add a downstream version: maintain/add-a-downstream-version.md
+      - Base images: maintain/base-images.md
+      - Deb dependencies: maintain/deb-dependencies.md
+      - CI and releases: maintain/ci-and-releases.md
+      - Yocto images: maintain/yocto.md

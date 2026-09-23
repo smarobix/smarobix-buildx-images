@@ -6,7 +6,7 @@ name: Build images
 on:
   pull_request:
   push:
-    branches: [main, develop]
+    branches: [main]
     tags: ['v*']
   workflow_dispatch:
 
@@ -14,13 +14,52 @@ permissions:
   contents: read
 
 jobs:
+  # targets.yml describes every published image once. tools/targets.py
+  # validates it and turns it into the build and package matrices.
+  setup:
+    name: Targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      build: ${{ steps.matrix.outputs.build }}
+      package: ${{ steps.matrix.outputs.package }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      # In a venv: the runner's system Python is externally managed (PEP 668)
+      # and may not ship PyYAML.
+      - name: Install PyYAML
+        run: |
+          python3 -m venv "${RUNNER_TEMP}/venv"
+          "${RUNNER_TEMP}/venv/bin/pip" install --quiet 'PyYAML>=6,<7'
+          echo "${RUNNER_TEMP}/venv/bin" >> "$GITHUB_PATH"
+
+      - name: Test tools/targets.py
+        run: python3 tools/test_targets.py
+
+      # The targets reference is generated from targets.yml. Without this, an
+      # edit to targets.yml that skips the regeneration leaves a stale page
+      # and a green build.
+      - name: Check that the generated targets reference is current
+        run: python3 tools/targets.py docs --check -o docs/reference/targets.md
+
+      - name: Generate the matrices
+        id: matrix
+        # Assigned first: under bash -e a failing command substitution inside
+        # echo would not fail the step, and every job would get an empty matrix.
+        run: |
+          build=$(python3 tools/targets.py matrix build)
+          package=$(python3 tools/targets.py matrix package)
+          {
+            echo "build=${build}"
+            echo "package=${package}"
+          } >> "$GITHUB_OUTPUT"
+
   build:
     name: ${{ matrix.image }}-${{ matrix.distro }}
-    # arm64 targets build on the native arm64 runner. Emulated arm64
-    # (qemu-aarch64) silently loses files from the colcon merge-install prefix
-    # partway through a large source build, which surfaces as a dependent
-    # package failing to find an already-installed library such as rcutils.
-    # armv7 emulation is unaffected and stays on the x86_64 workstations.
+    needs: setup
+    # targets.yml says why each image builds on the runner it does.
     runs-on: ${{ matrix.runs_on }}
     # A hung emulated build otherwise holds a runner for GitHub's 6 h default:
     # pynq-v3.1.1-jazzy once hung in a ros-build step that normally takes ~33 min,
@@ -32,116 +71,7 @@ jobs:
       packages: write
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - board_dir: k26
-            image: k26
-            distro: jazzy
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-          - board_dir: k26
-            image: k26
-            distro: humble
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-          - board_dir: pynq-z1
-            image: pynq-v3.1.1
-            distro: jazzy
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-          - board_dir: pynq-z1
-            image: pynq-v3.1.1
-            distro: humble
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-          # Raspberry Pi OS / Debian. Debian publishes no ROS binaries for any
-          # suite, so arm64 builds from source too. suite/py_ver must agree.
-          # The image name carries the ISA baseline rather than a board model:
-          # nothing here is Pi-specific, and the armv7 build runs on any ARMv7
-          # board of that suite, not only on a Pi 5.
-          - board_dir: rpi
-            image: rpi-arm64-trixie
-            distro: jazzy
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            suite: trixie
-            py_ver: "3.13"
-          - board_dir: rpi
-            image: rpi-arm64-trixie
-            distro: humble
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            suite: trixie
-            py_ver: "3.13"
-          - board_dir: rpi
-            image: rpi-armv7-trixie
-            distro: jazzy
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            suite: trixie
-            py_ver: "3.13"
-          - board_dir: rpi
-            image: rpi-armv7-trixie
-            distro: humble
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            suite: trixie
-            py_ver: "3.13"
-          - board_dir: rpi
-            image: rpi-arm64-bookworm
-            distro: jazzy
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            suite: bookworm
-            py_ver: "3.11"
-          - board_dir: rpi
-            image: rpi-arm64-bookworm
-            distro: humble
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            suite: bookworm
-            py_ver: "3.11"
-          - board_dir: rpi
-            image: rpi-armv7-bookworm
-            distro: jazzy
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            suite: bookworm
-            py_ver: "3.11"
-          - board_dir: rpi
-            image: rpi-armv7-bookworm
-            distro: humble
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            suite: bookworm
-            py_ver: "3.11"
-          # Yocto / meta-ros: the SDK packaged as a cross-build image, on top
-          # of the board's bitbake-built dev container (base_image). The SDK
-          # installer is a bitbake output, published as an asset of the
-          # sdk_release release and pinned by checksum; the bitbake builds
-          # themselves run outside CI (yocto/README.md).
-          - board_dir: oesdk
-            dockerfile: Dockerfile
-            image: k26-oesdk
-            distro: jazzy
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            base_image: k26-yocto-jazzy
-            sdk_release: yocto-sdk-jazzy-2026.09.15
-            sdk_installer: oecore-ros2-image-sdktest-jazzy-aarch64-cortexa72-cortexa53-k26-smk-kv-sdt-toolchain-nodistro.0.sh
-            sdk_sha256: 99529c2bdc3a212585fcd57916865e81178d06e7d3be7e7d396a46a453213335
-            sdk_env_setup: environment-setup-cortexa72-cortexa53-oe-linux
-          - board_dir: oesdk
-            dockerfile: Dockerfile
-            image: rpi5-oesdk
-            distro: jazzy
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            base_image: rpi5-yocto-jazzy
-            sdk_release: yocto-sdk-jazzy-2026.09.15
-            sdk_installer: oecore-ros2-image-sdktest-jazzy-aarch64-cortexa76-raspberrypi5-toolchain-nodistro.0.sh
-            sdk_sha256: a2e7e4dc2a57d9073bdaa67571fce682a112fe6a97039312e917cf517a0dd4b4
-            sdk_env_setup: environment-setup-cortexa76-oe-linux
+      matrix: ${{ fromJSON(needs.setup.outputs.build) }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -153,9 +83,9 @@ jobs:
 
       # Pull requests build only the images whose inputs they change; pushes,
       # tags and manual runs build everything. An image's inputs are its
-      # dockerfiles/<board_dir>/ directory, and this workflow counts for all
-      # of them. A skipped image still reports success, so it never blocks a
-      # merge.
+      # dockerfiles/<board_dir>/ directory, and this workflow, targets.yml and
+      # tools/targets.py count for all of them. A skipped image still reports
+      # success, so it never blocks a merge.
       - name: Decide whether this image needs building
         id: filter
         env:
@@ -170,7 +100,7 @@ jobs:
           # and skip every image while CI stays green.
           changed=$(git diff --name-only HEAD^1 HEAD)
           if printf '%s\n' "$changed" \
-              | grep -qE "^(dockerfiles/${BOARD_DIR}/|\.github/workflows/build-images\.yml$)"; then
+              | grep -qE "^(dockerfiles/${BOARD_DIR}/|\.github/workflows/build-images\.yml$|targets\.yml$|tools/targets\.py$)"; then
             echo "build=true" >> "$GITHUB_OUTPUT"
           else
             echo "build=false" >> "$GITHUB_OUTPUT"
@@ -198,15 +128,12 @@ jobs:
         id: meta
         run: |
           REPO="ghcr.io/${GITHUB_REPOSITORY,,}"
-          BASE="${{ matrix.image }}-${{ matrix.distro }}"
-          if [[ "${GITHUB_REF}" == "refs/heads/develop" ]]; then
-            TAG="${BASE}-develop"
-          else
-            TAG="${BASE}"
-          fi
-          echo "repo=${REPO}" >> "$GITHUB_OUTPUT"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "cache_ref=${REPO}:${BASE}-buildcache" >> "$GITHUB_OUTPUT"
+          TAG="${{ matrix.image }}-${{ matrix.distro }}"
+          {
+            echo "repo=${REPO}"
+            echo "tag=${TAG}"
+            echo "cache_ref=${REPO}:${TAG}-buildcache"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download the Yocto SDK installer
         if: ${{ steps.filter.outputs.build == 'true' && matrix.sdk_installer }}
@@ -221,12 +148,13 @@ jobs:
         uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
         with:
           context: dockerfiles/${{ matrix.board_dir }}
-          file: dockerfiles/${{ matrix.board_dir }}/${{ matrix.dockerfile || format('Dockerfile.{0}', matrix.distro) }}
+          file: dockerfiles/${{ matrix.board_dir }}/${{ matrix.dockerfile }}
           platforms: ${{ matrix.platform }}
           build-contexts: ${{ matrix.sdk_installer && 'sdk=sdk' || '' }}
+          # build_args holds targets.yml's build.args, one NAME=value per line.
+          # BASE_IMAGE is added here because it names the registry this runs against.
           build-args: |
-            ${{ matrix.suite && format('SUITE={0}', matrix.suite) || '' }}
-            ${{ matrix.py_ver && format('PY_VER={0}', matrix.py_ver) || '' }}
+            ${{ matrix.build_args }}
             ${{ matrix.base_image && format('BASE_IMAGE={0}:{1}', steps.meta.outputs.repo, matrix.base_image) || '' }}
             ${{ matrix.sdk_installer && format('SDK_INSTALLER={0}', matrix.sdk_installer) || '' }}
             ${{ matrix.sdk_env_setup && format('SDK_ENV_SETUP={0}', matrix.sdk_env_setup) || '' }}
@@ -247,7 +175,7 @@ jobs:
 
   package:
     name: Package ${{ matrix.image }}-${{ matrix.distro }}
-    needs: build
+    needs: [setup, build]
     if: startsWith(github.ref, 'refs/tags/v')
     # Matches the build job: the .deb is assembled by running the image, so run
     # arm64 images on the arm64 runner rather than under emulation.
@@ -257,144 +185,9 @@ jobs:
       packages: read
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # `image` is the GHCR tag prefix; `pkg` is the .deb name suffix, which
-          # omits the architecture because dpkg already carries it in the
-          # filename and the control Architecture field.
-          #
-          # Shared-library dependencies are NOT listed here — they are derived
-          # from the built tree by .github/scripts/compute-depends.sh, so they
-          # cannot drift from what the binaries actually link against. The three
-          # fields below cover only what ELF inspection cannot see:
-          #   depends_extra  Python modules without which `ros2` will not run
-          #   recommends     optional features (cv_bridge's Python bindings,
-          #                  sros2, ros2doctor) — apt installs these by default
-          #                  but the tree works without them
-          #   suggests       toolchain for building ROS packages on the board,
-          #                  space-separated so postinst can paste it into an
-          #                  apt command; the control field's comma form is
-          #                  derived from it
-          - image: pynq-v3.1.1
-            pkg: pynq-v3.1.1
-            distro: jazzy
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            deb_arch: armhf
-            target: PYNQ v3.1.1 (Ubuntu 22.04)
-            board: Xilinx Zynq-7020 boards (Pynq-Z1 / Pynq-Z2)
-            rmw: rmw_cyclonedds_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: pynq-v3.1.1
-            pkg: pynq-v3.1.1
-            distro: humble
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            deb_arch: armhf
-            target: PYNQ v3.1.1 (Ubuntu 22.04)
-            board: Xilinx Zynq-7020 boards (Pynq-Z1 / Pynq-Z2)
-            rmw: rmw_cyclonedds_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-netifaces, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: rpi-arm64-trixie
-            pkg: rpi-trixie
-            distro: jazzy
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            deb_arch: arm64
-            target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
-            board: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
-            rmw: rmw_fastrtps_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: rpi-arm64-trixie
-            pkg: rpi-trixie
-            distro: humble
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            deb_arch: arm64
-            target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
-            board: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
-            rmw: rmw_fastrtps_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-netifaces, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: rpi-armv7-trixie
-            pkg: rpi-trixie
-            distro: jazzy
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            deb_arch: armhf
-            target: Raspberry Pi OS 13 / Debian 13 (trixie), armhf
-            board: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
-            rmw: rmw_cyclonedds_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: rpi-armv7-trixie
-            pkg: rpi-trixie
-            distro: humble
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            deb_arch: armhf
-            target: Raspberry Pi OS 13 / Debian 13 (trixie), armhf
-            board: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
-            rmw: rmw_cyclonedds_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-netifaces, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: rpi-arm64-bookworm
-            pkg: rpi-bookworm
-            distro: jazzy
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            deb_arch: arm64
-            target: Raspberry Pi OS 12 / Debian 12 (bookworm), arm64
-            board: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
-            rmw: rmw_fastrtps_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: rpi-arm64-bookworm
-            pkg: rpi-bookworm
-            distro: humble
-            platform: linux/arm64
-            runs_on: [self-hosted, ARM64]
-            deb_arch: arm64
-            target: Raspberry Pi OS 12 / Debian 12 (bookworm), arm64
-            board: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
-            rmw: rmw_fastrtps_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-netifaces, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: rpi-armv7-bookworm
-            pkg: rpi-bookworm
-            distro: jazzy
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            deb_arch: armhf
-            target: Raspberry Pi OS 12 / Debian 12 (bookworm), armhf
-            board: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
-            rmw: rmw_cyclonedds_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
-          - image: rpi-armv7-bookworm
-            pkg: rpi-bookworm
-            distro: humble
-            platform: linux/arm/v7
-            runs_on: [self-hosted, X64]
-            deb_arch: armhf
-            target: Raspberry Pi OS 12 / Debian 12 (bookworm), armhf
-            board: any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W
-            rmw: rmw_cyclonedds_cpp
-            depends_extra: "python3, python3-argcomplete, python3-lark, python3-netifaces, python3-numpy, python3-packaging, python3-psutil, python3-yaml"
-            recommends: "python3-catkin-pkg, python3-cryptography, python3-lxml, python3-opencv, python3-rosdistro"
-            suggests: "build-essential cmake git python3-dev python3-pip"
+      # One entry per target in targets.yml with a deb block; the fields are
+      # explained there.
+      matrix: ${{ fromJSON(needs.setup.outputs.package) }}
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -478,6 +271,8 @@ jobs:
           # Recommends are pulled in by `apt install ./file.deb` but not by
           # `dpkg -i`, and neither surfaces the RMW choice or the extra step
           # needed to build packages on the board — so say it at install time.
+          # ros-dev-tools in Suggests comes from the ROS 2 apt source, which the
+          # user adds first; the page linked below has the commands.
           cat > "$STAGE/DEBIAN/postinst" <<EOF
           #!/bin/sh
           set -e
@@ -488,14 +283,14 @@ jobs:
 
             source /opt/ros/${{ matrix.distro }}/setup.bash
 
-          Recommended RMW for this board:
+          Recommended RMW (not set by this package):
             export RMW_IMPLEMENTATION=${{ matrix.rmw }}
 
-          To build ROS packages on this board (not needed just to run nodes):
+          To build ROS packages on this board (not needed just to run nodes),
+          add the ROS 2 apt source with the ros2-apt-source package, then:
+            sudo apt update
             sudo apt install ${{ matrix.suggests }}
-            pip install --break-system-packages 'empy==3.3.4' colcon-common-extensions
-
-          Debian ships empy 4.x, whose API rosidl does not support, hence the pin.
+          Step by step: https://smarobix.github.io/smarobix-buildx-images/how-to/build-on-the-board/
 
           MSG
           fi
@@ -538,3 +333,8 @@ jobs:
           files: dist/*
           generate_release_notes: true
           fail_on_unmatched_files: true
+          # The hand-made yocto-sdk-* releases that carry the SDK installers
+          # share this release stream, so they must be created with
+          # `gh release create ... --latest=false`. Saying it here as well
+          # makes every v* release the latest one, whatever GitHub would infer.
+          make_latest: true
