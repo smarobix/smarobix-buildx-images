@@ -2,7 +2,8 @@
 # Fix ROS 2 source that predates the toolchains and Python versions shipped by
 # Debian bookworm (Python 3.11, GCC 12) and trixie (Python 3.13, GCC 14).
 #
-# Two kinds of fix live here. Both are no-ops when the target is absent or
+# Three kinds of fix live here: missing includes, the pybind11 version Humble
+# pins, and mcap_vendor's -Werror. All are no-ops when the target is absent or
 # already correct, so the same script runs for every suite and distro.
 set -eu
 

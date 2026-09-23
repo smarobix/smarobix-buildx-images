@@ -27,15 +27,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # --- Enable universe (required for ROS)
 RUN add-apt-repository universe && apt-get update && rm -rf /var/lib/apt/lists/*
 
-# --- Add the ROS 2 apt repository with a hand-installed ros.asc keyring
-# This is the older manual setup. The official method is now the
-# ros2-apt-source package, which Dockerfile.humble uses; switching this file
-# over changes this layer and every later one, so it waits for a change that
-# rebuilds the image anyway.
-RUN curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | \
-    gpg --dearmor -o /usr/share/keyrings/ros-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(lsb_release -cs) main" | \
-    tee /etc/apt/sources.list.d/ros2.list > /dev/null
+# --- Install the ROS 2 apt source with the ros2-apt-source package (the
+# official method), pinned so a rebuild resolves the same source
+ARG ROS_APT_SOURCE_VERSION=1.3.0
+RUN curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb" && \
+    dpkg -i /tmp/ros2-apt-source.deb && \
+    rm /tmp/ros2-apt-source.deb && \
+    apt-get update
 
 # --- Add Xilinx PPAs
 # Retried: add-apt-repository fetches each PPA's signing key from Launchpad,

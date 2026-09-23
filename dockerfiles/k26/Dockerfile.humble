@@ -22,9 +22,10 @@ ENV LC_ALL=en_US.UTF-8
 RUN add-apt-repository universe
 
 # --- [2] Install the ROS 2 apt source with the ros2-apt-source package (the
-# official method), taking its latest release at build time
-RUN export ROS_APT_SOURCE_VERSION=$(curl -s https://api.github.com/repos/ros-infrastructure/ros-apt-source/releases/latest | grep -F "tag_name" | awk -F\" '{print $4}') && \
-    curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb" && \
+# official method), pinned so a rebuild resolves the same source rather than
+# whatever release is newest that day
+ARG ROS_APT_SOURCE_VERSION=1.3.0
+RUN curl -L -o /tmp/ros2-apt-source.deb "https://github.com/ros-infrastructure/ros-apt-source/releases/download/${ROS_APT_SOURCE_VERSION}/ros2-apt-source_${ROS_APT_SOURCE_VERSION}.$(. /etc/os-release && echo $VERSION_CODENAME)_all.deb" && \
     dpkg -i /tmp/ros2-apt-source.deb && \
     rm /tmp/ros2-apt-source.deb && \
     apt-get update
