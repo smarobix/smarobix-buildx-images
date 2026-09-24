@@ -226,11 +226,29 @@ jobs:
           VERSION="${GITHUB_REF_NAME#v}"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
 
-      - name: Extract /opt/ros/${{ matrix.distro }} from image
+      # The tree can link libraries built from source outside it, which the
+      # package must carry or no board will have them. bundle-vendor-libs.sh
+      # copies them in; the tree extracted below and the dependencies derived
+      # after it both come from the result, so the three stay consistent.
+      - name: Bundle vendor libraries into the tree
+        id: tree
         run: |
           IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${{ matrix.image }}-${{ matrix.distro }}"
           docker pull --platform ${{ matrix.platform }} "$IMAGE"
-          CID=$(docker create --platform ${{ matrix.platform }} "$IMAGE")
+          CID=$(docker create --platform ${{ matrix.platform }} \
+            -e DISTRO=${{ matrix.distro }} \
+            -v "$PWD/.github/scripts:/scripts:ro" \
+            "$IMAGE" bash /scripts/bundle-vendor-libs.sh)
+          docker start -a "$CID"
+          # A local tag only; nothing is pushed. The packaged tree and the
+          # dependency scan must see the same filesystem.
+          docker commit "$CID" "buildx-package:${{ matrix.image }}-${{ matrix.distro }}"
+          docker rm "$CID"
+          echo "image=buildx-package:${{ matrix.image }}-${{ matrix.distro }}" >> "$GITHUB_OUTPUT"
+
+      - name: Extract /opt/ros/${{ matrix.distro }} from image
+        run: |
+          CID=$(docker create --platform ${{ matrix.platform }} "${{ steps.tree.outputs.image }}")
           mkdir -p out/opt/ros
           docker cp "$CID:/opt/ros/${{ matrix.distro }}" "out/opt/ros/${{ matrix.distro }}"
           docker rm "$CID"
@@ -238,11 +256,10 @@ jobs:
       - name: Derive runtime dependencies from the image
         id: depends
         run: |
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY,,}:${{ matrix.image }}-${{ matrix.distro }}"
           DEPS=$(docker run --rm --platform ${{ matrix.platform }} \
             -e DISTRO=${{ matrix.distro }} \
             -v "$PWD/.github/scripts/compute-depends.sh:/compute-depends.sh:ro" \
-            "$IMAGE" bash /compute-depends.sh)
+            "${{ steps.tree.outputs.image }}" bash /compute-depends.sh)
           if [ -z "$DEPS" ]; then
             echo "::error::dependency derivation produced nothing for ${{ matrix.image }}-${{ matrix.distro }}"
             exit 1
