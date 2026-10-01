@@ -163,7 +163,7 @@ jobs:
           echo "${{ matrix.sdk_sha256 }}  sdk/${{ matrix.sdk_installer }}" | sha256sum -c -
 
       - name: Build and push
-        uses: docker/build-push-action@f9f3042f7e2789586610d6e8b85c8f03e5195baf # v7.2.0
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: dockerfiles/${{ matrix.board_dir }}
           file: dockerfiles/${{ matrix.board_dir }}/${{ matrix.dockerfile }}
