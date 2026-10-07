@@ -5,7 +5,7 @@
 # every cached layer, and pull requests cannot refresh the registry cache, so a
 # silent bump turns the next pull request that builds this image into a cold
 # rebuild.
-FROM arm64v8/ros:humble-ros-base@sha256:885431a2148d74a581fbedece3c09bc9cf17e02b11723e9557593e181089c87c
+FROM arm64v8/ros:humble-ros-base@sha256:de1c7c0cd857992571b629e7fddd984e2abb2fedfbc09066628651c7cf9e64eb
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=humble
