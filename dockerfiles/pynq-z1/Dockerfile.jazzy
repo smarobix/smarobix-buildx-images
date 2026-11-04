@@ -5,7 +5,7 @@
 # every cached layer, and pull requests cannot refresh the registry cache, so a
 # silent bump turns the next pull request that builds this image into a cold
 # rebuild.
-FROM arm32v7/ubuntu:jammy@sha256:f3f54b94eac58a93aaae1a9005fc3139f6d835c9ce34281ce8ef5bccf436fe19
+FROM arm32v7/ubuntu:jammy@sha256:ea645d2bddc63a1c08a526820ef441cd99214141cea4f21451fee363b249af3a
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV ROS_DISTRO=jazzy
