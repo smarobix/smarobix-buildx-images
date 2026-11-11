@@ -4,25 +4,9 @@ Everything in these pages runs on your computer, except the commands marked as r
 
 ## Docker
 
-Install Docker Desktop, or Docker Engine on Linux. Most build images run *as* the board: they hold an arm64 or ARMv7 userspace, so the host has to be able to run that architecture.
+Install Docker Desktop, or Docker Engine on Linux. That is all: any computer works, x86_64 or arm64, and nothing runs under emulation, so there is no QEMU to set up.
 
-- An **Apple Silicon Mac or an arm64 Linux host** runs arm64 images natively. Nothing to do.
-- An **x86_64 host** needs QEMU registered with the kernel. Docker Desktop includes it. On Docker Engine, register it once, and again after a reboot:
-
-    ```bash
-    docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-    ```
-
-- **32-bit images** (`linux/arm/v7`: the Pynq and the 32-bit Raspberry Pi targets) go through QEMU on most arm64 hosts too, Apple Silicon included. The same command registers it.
-
-Check that it took:
-
-```bash
-docker run --rm --platform linux/arm64 alpine uname -m    # aarch64
-docker run --rm --platform linux/arm/v7 alpine uname -m   # armv7l
-```
-
-Emulated builds work. They are several times slower than native ones, because every compiler process is emulated. `exec format error` means the handlers are not registered.
+colcon buildx builds on your computer's own architecture. For a robot's SDK image, it adds a thin layer the first time it meets that image version; for a board image of another architecture, it builds a cross image from it, once. Both need network access the first time, and take from a few seconds to about a minute.
 
 ## colcon-buildx
 
