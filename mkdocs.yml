@@ -107,7 +107,8 @@ nav:
       - 3 · Build your workspace: start/build.md
       - 4 · Deploy and run: start/deploy.md
   - Guides:
-      - Keep the image in step with the board: guides/sync.md
+      # Copied from smarobix-colcon-buildx's docs/ by tools/build-site.sh.
+      - OEROS robots: tool/oeros.md
       - Yocto boards: guides/yocto.md
       - Troubleshooting: tool/troubleshooting.md
   - How it works: how-it-works.md
@@ -115,7 +116,6 @@ nav:
       - Targets: reference/targets.md
       # Copied from smarobix-colcon-buildx's docs/ by tools/build-site.sh.
       - colcon buildx: tool/reference.md
-      - Image labels: tool/labels.md
   - Maintaining:
       - The repository: maintain/index.md
       - Rebuild the Yocto images: maintain/yocto.md

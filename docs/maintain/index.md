@@ -12,7 +12,7 @@ For people who change smarobix-buildx-images. To use the images, start at the [h
 | `.github/workflows/build-images.yml` | Builds and pushes the images. On a `v*` tag it packages the `.deb` files and creates the release. |
 | `.github/scripts/compute-depends.sh` | Derives a `.deb`'s `Depends` from the built tree. |
 | `yocto/` | kas files and the `meta-smrbx` layer for the Yocto boards. |
-| `docs/`, `mkdocs.yml`, `tools/build-site.sh` | This site. colcon-buildx's `docs/` is copied in under `tool/` at build time. |
+| `docs/`, `mkdocs.yml`, `tools/build-site.sh` | This site. colcon-buildx's `docs/`, with the OEROS guide, the reference, troubleshooting and their diagrams, is copied in under `tool/` at build time; `CBX_DOCS_DIR` points the script at a local checkout for a preview. |
 
 ## One fact, one owner
 
@@ -28,7 +28,7 @@ CI runs the same three. A page that needs a list of targets links to the referen
 
 ## Add a target
 
-1. **Find out whether the buildfarm has binaries** for the board's OS release and architecture ([how](../how-it-works.md#why-these-boards-need-help)). Yes, on Ubuntu: family `ubuntu-apt`, no `.deb`, start from `dockerfiles/k26/`. No: the target builds ROS 2 from source and must ship a `.deb`; start from `dockerfiles/rpi/` for stock Debian (the `SUITE` and `PY_VER` build arguments select the release) or `dockerfiles/pynq-z1/` for a vendor image. A Yocto board is a machine under `yocto/kas/` instead ([Rebuild the Yocto images](yocto.md)).
+1. **Decide whether the board needs this project at all** ([who covers what](../how-it-works.md#who-covers-what)). A 64-bit board on Ubuntu or Debian is covered by pixi and RoboStack; point its users there. A 32-bit board needs ROS 2 built from source and shipped as a `.deb`: start from `dockerfiles/rpi/` for stock Debian (the `SUITE` and `PY_VER` build arguments select the release) or `dockerfiles/pynq-z1/` for a vendor image. A Yocto robot belongs in OEROS, as a machine there, or under `yocto/kas/` here until it is ([Rebuild the Yocto images](yocto.md)).
 2. **Match the base image to the board's userspace**, not only to its architecture: libc, libpython, libstdc++ and OpenCV must agree, or the `.deb` installs cleanly and fails at the first `ros2` call. Pin the base by digest (`docker buildx imagetools inspect debian:trixie-slim` prints it) and add the directory to `.github/dependabot.yml`, so the pin gets bumped.
 3. **Add the entry to `targets.yml`**, copying a neighbour of the same family; the header comment documents every key. Name the image after what changes the ABI, the downstream release (`pynq-v3.1.1`) or the ISA baseline and suite (`rpi-armv7-trixie`), never after a board model. Leave `tested` empty until the target has run on hardware.
 4. **Regenerate and check** as above, then build the image locally before opening the pull request: `docker buildx build --platform <platform> -f dockerfiles/<dir>/Dockerfile.<distro> dockerfiles/<dir>`. A cold source build under emulation takes hours; `--build-arg ROS_BUILD_WORKERS=4` caps the parallelism when builds share a machine.
@@ -49,12 +49,12 @@ An image's inputs are its `dockerfiles/<dir>/`; `targets.yml`, `tools/targets.py
 
 ## Check a `.deb` before a release
 
-`Depends` is computed by `compute-depends.sh` from the ELF objects in the tree; the hand-kept fields in `targets.yml` cover what ELF inspection cannot see, Python imports above all. Run the computation against a published image and compare with the last release's package (`dpkg-deb -I`):
+`Depends` is computed by `compute-depends.sh` from the ELF objects in the tree; the hand-kept fields in `targets.yml` cover what ELF inspection cannot see, Python imports above all. Run the computation against a published image and compare with the last release's package (`dpkg-deb -I`). This runs the image, so on an x86_64 or arm64 computer it goes through QEMU, as the image builds do:
 
 ```bash
-docker run --rm --platform linux/arm64 -e DISTRO=jazzy \
+docker run --rm --platform linux/arm/v7 -e DISTRO=jazzy \
   -v "$PWD/.github/scripts/compute-depends.sh:/compute-depends.sh:ro" \
-  ghcr.io/smarobix/smarobix-buildx-images:rpi-arm64-trixie-jazzy bash /compute-depends.sh
+  ghcr.io/smarobix/smarobix-buildx-images:rpi-armv7-trixie-jazzy bash /compute-depends.sh
 ```
 
 Then install the package in a clean `debian:<suite>-slim` container, never in the build image, run a talker and a listener, and repeat with `--no-install-recommends`. What the computation misses is a library no package owns: the Pynq images build OpenCV into `/opt/install`, which the package neither ships nor declares.

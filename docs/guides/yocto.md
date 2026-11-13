@@ -1,6 +1,6 @@
 # Yocto boards
 
-A Kria K26 or a Raspberry Pi 5 can run an image that bitbake builds from [meta-ros](https://github.com/ros/meta-ros): kernel, userspace and ROS 2 in one, pinned by recipe. This project's [`yocto/`](https://github.com/smarobix/smarobix-buildx-images/tree/main/yocto) directory holds the configuration. It is a different world from Ubuntu: there is no apt, binaries built against Ubuntu or Debian do not run there, and binaries built here do not run on Ubuntu.
+A Kria K26 or a Raspberry Pi 5 can run an image that bitbake builds from [meta-ros](https://github.com/ros/meta-ros): kernel, userspace and ROS 2 in one, pinned by recipe. The Kria K26 is not an OEROS machine yet, so this project builds its image from meta-ros directly. This project's [`yocto/`](https://github.com/smarobix/smarobix-buildx-images/tree/main/yocto) directory holds the configuration. It is a different world from Ubuntu: there is no apt, binaries built against Ubuntu or Debian do not run there, and binaries built here do not run on Ubuntu.
 
 What a first-time user hits: the image logs in as `root` with an empty password, it has no bash (source `setup.sh`, not `setup.bash`), and adding software means rebuilding the image.
 
@@ -23,35 +23,20 @@ For a Raspberry Pi 5, `CFG=kas/oeros-scarthgap-jazzy-raspberrypi5.yml:kas/smrbx-
 
 The image lands in `build/tmp-glibc/deploy/images/<machine>/ros-image-core-jazzy-<machine>.rootfs.wic.bz2`, with a `.wic.bmap` beside it. Write it to an SD card with `bmaptool copy` and boot from the card. On a Kria, U-Boot prints `SCK-KV-G` or `SCK-KR-G` at boot: flash the image for that carrier, and leave the QSPI firmware alone unless the card will not boot.
 
-## Three ways to build a workspace
+## Build a workspace for it
 
-All three link against the meta-ros sysroot and produce binaries for the board image. The tutorial uses the first.
+Two images per board link against the board image's own sysroot. Both are built for arm64 computers, such as Apple silicon or an arm64 Linux machine:
 
-| Route | Kria K26 | Raspberry Pi 5 | Runs on | Python message bindings |
-|---|---|---|---|---|
-| Dev container | `k26-yocto-jazzy` | `rpi5-yocto-jazzy` | any host with Docker, as the board; QEMU on x86_64 | yes |
-| SDK image | `k26-oesdk-jazzy` | `rpi5-oesdk-jazzy` | any host with Docker, cross-compiling on the host | no |
-| SDK installed on the host | `environment-setup-cortexa72-cortexa53-oe-linux` | `environment-setup-cortexa76-oe-linux` | arm64 Linux only | no |
+| Route | Kria K26 | Raspberry Pi 5 | Python bindings for messages |
+|---|---|---|---|
+| SDK image | `k26-oesdk-jazzy` | `rpi5-oesdk-jazzy` | no |
+| Dev container | `k26-yocto-jazzy` | `rpi5-yocto-jazzy` | yes |
 
-**Dev container.** An image of the board's own userspace plus compilers, built by bitbake from the same configuration as the board image. This is the `.buildx.conf` in the tutorial.
+**SDK image.** The meta-ros SDK in a Docker image: a cross toolchain plus the board's sysroot. colcon buildx prepares it once and builds through its toolchain wrapper, exactly as for an [OEROS robot](../tool/oeros.md#how-colcon-buildx-works-with-an-oeros-image). Name the tag in `.buildx.conf`; nothing else is needed.
 
-**SDK image.** The meta-ros SDK installed on top of the dev container. It carries a cross toolchain and runs on the host's architecture, so colcon-buildx starts it without `--platform`, sources the SDK environment and builds with Ninja, all of which it reads from the image's [labels](../tool/labels.md). In `.buildx.conf`, name the tag and drop `docker_platform`. The published tags have only an arm64 entry, so on an x86_64 host pull once with the platform first, or the build fails with "no matching manifest":
+**Dev container.** The board's own userspace plus compilers, built by bitbake from the same configuration as the board image. It runs as the board, which on an arm64 computer needs no emulation, and it generates Python bindings for messages, which the SDK image cannot.
 
-```bash
-docker pull --platform linux/arm64 ghcr.io/smarobix/smarobix-buildx-images:k26-oesdk-jazzy
-```
-
-**SDK on the host.** The way meta-ros intends its SDKs to be used. Download the installer for your board from the [SDK releases](https://github.com/smarobix/smarobix-buildx-images/releases?q=yocto-sdk), whose notes list each file's sha256, then:
-
-```bash
-sh oecore-*.sh -y -d /opt/ros-sdk
-colcon buildx --method sdk --sdk-env /opt/ros-sdk/environment-setup-cortexa72-cortexa53-oe-linux \
-  --cmake-args -DBUILD_TESTING=OFF
-```
-
-Both SDK routes need an SDK built with `ros-sdk-env`, which sets the toolchain file, `PYTHON_SOABI` and `AMENT_PREFIX_PATH`. The published ones have it, and colcon-buildx stops with a clear error when one does not. Neither route generates Python message bindings, because meta-ros SDKs ship no `rosidl_generator_py`: on the board, `ros2 topic echo` then sees a custom message type but cannot decode it. Build interface packages in the dev container if you need them.
-
-Around the SDK's toolchain file, colcon-buildx writes a wrapper in `cross_build/` that lets a package find the ones built before it in the same workspace, and `--emit-mixin` writes the same settings as a colcon mixin for a plain `colcon build`.
+On an x86_64 computer, colcon buildx refuses both rather than emulate them. Building there needs an SDK made with `SDKMACHINE = "x86_64"`, which this project does not publish. For a Raspberry Pi 5, look at [OEROS](../tool/oeros.md) first: its arm64 SDK images come for x86_64 and arm64 computers alike.
 
 ## On the board
 
