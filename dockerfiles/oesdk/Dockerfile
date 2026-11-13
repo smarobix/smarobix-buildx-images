@@ -34,11 +34,10 @@
 #       --build-arg SDK_ENV_SETUP=environment-setup-cortexa72-cortexa53-oe-linux \
 #       -t k26-oesdk:jazzy dockerfiles/oesdk
 # SDK_ENV_SETUP names the SDK's environment script, which follows the target
-# tune: cortexa72-cortexa53 for the Kria K26, cortexa76 for the Raspberry Pi 5.
+# tune: cortexa72-cortexa53 for the Kria K26.
 # CI downloads the installers from this repository's releases.
 
-# BASE_IMAGE is the board's dev container (k26-yocto-jazzy or
-# rpi5-yocto-jazzy). Unlike the other images' bases it stays on a tag rather
+# BASE_IMAGE is the board's dev container (k26-yocto-jazzy). Unlike the other images' bases it stays on a tag rather
 # than a digest: it is our own image, and it moves only when we rebuild it
 # with bitbake.
 ARG BASE_IMAGE
