@@ -1,6 +1,6 @@
 # Yocto / meta-ros configuration
 
-The Yocto side of this repository: the board images for the Kria K26 (KV260, KR260) and the Raspberry Pi 5, the meta-ros SDKs that `dockerfiles/oesdk` packages, and the dev containers built from the same configuration.
+The Yocto side of this repository: the board images for the Kria K26 (KV260, KR260), the meta-ros SDK that `dockerfiles/oesdk` packages, and the dev container built from the same configuration.
 
 ```
 kas/                  kas files, overlaid on meta-ros's own kas configs

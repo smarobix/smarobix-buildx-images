@@ -30,12 +30,8 @@ Debian has no official ROS 2 binaries, so ROS 2 is built from source on stock De
 
 | Tag | Boards | OS | Arch | Docker platform | `.deb` package | Tested |
 |---|---|---|---|---|---|---|
-| `rpi-arm64-trixie-jazzy` | any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board | Raspberry Pi OS 13 / Debian 13 (`trixie`) | `arm64` | `linux/arm64` | `smarobix-ros-jazzy-rpi-trixie` | not yet |
-| `rpi-arm64-trixie-humble` | any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board | Raspberry Pi OS 13 / Debian 13 (`trixie`) | `arm64` | `linux/arm64` | `smarobix-ros-humble-rpi-trixie` | not yet |
 | `rpi-armv7-trixie-jazzy` | any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W | Raspberry Pi OS 13 / Debian 13 (`trixie`) | `armhf` | `linux/arm/v7` | `smarobix-ros-jazzy-rpi-trixie` | not yet |
 | `rpi-armv7-trixie-humble` | any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W | Raspberry Pi OS 13 / Debian 13 (`trixie`) | `armhf` | `linux/arm/v7` | `smarobix-ros-humble-rpi-trixie` | not yet |
-| `rpi-arm64-bookworm-jazzy` | any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board | Raspberry Pi OS 12 / Debian 12 (`bookworm`) | `arm64` | `linux/arm64` | `smarobix-ros-jazzy-rpi-bookworm` | not yet |
-| `rpi-arm64-bookworm-humble` | any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board | Raspberry Pi OS 12 / Debian 12 (`bookworm`) | `arm64` | `linux/arm64` | `smarobix-ros-humble-rpi-bookworm` | not yet |
 | `rpi-armv7-bookworm-jazzy` | any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W | Raspberry Pi OS 12 / Debian 12 (`bookworm`) | `armhf` | `linux/arm/v7` | `smarobix-ros-jazzy-rpi-bookworm` | not yet |
 | `rpi-armv7-bookworm-humble` | any ARMv7 Raspberry Pi (2, 3, 4, 5, Zero 2 W) on a 32-bit OS; not Pi 1 / Zero / Zero W | Raspberry Pi OS 12 / Debian 12 (`bookworm`) | `armhf` | `linux/arm/v7` | `smarobix-ros-humble-rpi-bookworm` | not yet |
 
@@ -46,7 +42,6 @@ The board's own meta-ros userspace plus compilers, built by bitbake from the sam
 | Tag | Boards | OS | Arch | Docker platform | `.deb` package | Tested |
 |---|---|---|---|---|---|---|
 | `k26-yocto-jazzy` | Kria K26 (KV260 / KR260) running the Yocto image built from yocto/ | Yocto / meta-ros (`scarthgap`) | `arm64` | `linux/arm64` | none | 2026-09-13, KV260 |
-| `rpi5-yocto-jazzy` | Raspberry Pi 5 running the Yocto image built from yocto/ | Yocto / meta-ros (`scarthgap`) | `arm64` | `linux/arm64` | none | not yet |
 
 ## Yocto SDK cross images (`oe-sdk`)
 
@@ -55,4 +50,3 @@ The meta-ros SDK installed on top of the matching dev container. The image carri
 | Tag | Boards | OS | Arch | Docker platform | `.deb` package | Tested |
 |---|---|---|---|---|---|---|
 | `k26-oesdk-jazzy` | Kria K26 (KV260 / KR260) running the Yocto image built from yocto/ | Yocto / meta-ros (`scarthgap`) | `arm64` | none (runs on the host) | none | 2026-09-15, KV260 |
-| `rpi5-oesdk-jazzy` | Raspberry Pi 5 running the Yocto image built from yocto/ | Yocto / meta-ros (`scarthgap`) | `arm64` | none (runs on the host) | none | not yet |
