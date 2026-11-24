@@ -3,9 +3,9 @@
 [![Build images](https://github.com/smarobix/smarobix-buildx-images/actions/workflows/build-images.yml/badge.svg)](https://github.com/smarobix/smarobix-buildx-images/actions/workflows/build-images.yml)
 [![Latest release](https://img.shields.io/github/v/release/smarobix/smarobix-buildx-images?include_prereleases&sort=semver&filter=v*)](https://github.com/smarobix/smarobix-buildx-images/releases)
 
-ROS 2 for ARM boards the official buildfarm does not cover: the Docker images that `colcon buildx` cross-builds workspaces in, ROS 2 install trees as `.deb` packages for boards with no ROS 2 binaries upstream (Raspberry Pi OS, Debian, PYNQ), and the Yocto / meta-ros configuration for the Kria K26 and the Raspberry Pi 5 with the images built from it.
+ROS 2 for ARM boards the official buildfarm does not cover: the Docker images that `colcon buildx` builds workspaces against, ROS 2 install trees as `.deb` packages for boards with no ROS 2 binaries upstream (Raspberry Pi OS, Debian, PYNQ), and the Yocto / meta-ros configuration for the Kria K26 and the Raspberry Pi 5 with the images built from it.
 
-This repository and [smarobix-colcon-buildx](https://github.com/smarobix/smarobix-colcon-buildx), the colcon verb that builds your workspace in these images, share one documentation site:
+This repository and [smarobix-colcon-buildx](https://github.com/smarobix/smarobix-colcon-buildx), the colcon verb that builds your workspace against these images, share one documentation site:
 
 **<https://smarobix.github.io/smarobix-buildx-images/>**
 
