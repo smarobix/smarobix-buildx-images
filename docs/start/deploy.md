@@ -1,9 +1,28 @@
 # Deploy and run
 
-`--deploy` copies `cross_install/` to `deploy_target` after a successful build, with `rsync --delete`. Create the directory on the board once, with your board's user and address, then build again with `--deploy`:
+`--deploy` copies `cross_install/` to `deploy_target` after a successful build, with `rsync --delete`. rsync creates only the last directory of that path, so create the directory on the board once, with the user, address and path of your `deploy_target`:
+
+=== "OEROS"
+
+    ```bash
+    ssh root@my-robot.local mkdir -p /opt/ws/install
+    ```
+
+=== "Pynq-Z1 / Z2"
+
+    ```bash
+    ssh xilinx@192.168.2.99 mkdir -p ros2_ws/install
+    ```
+
+=== "Raspberry Pi · 32-bit"
+
+    ```bash
+    ssh pi@10.42.0.3 mkdir -p ros2_ws/install
+    ```
+
+Then build again with `--deploy`:
 
 ```bash
-ssh pi@10.42.0.3 mkdir -p ros2_ws/install
 colcon buildx --deploy --packages-select examples_rclcpp_minimal_publisher examples_rclcpp_minimal_subscriber \
   --cmake-args -DBUILD_TESTING=OFF
 ```

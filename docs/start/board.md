@@ -4,7 +4,9 @@ ROS 2 comes from a different place on each board, and it has to match the board 
 
 === "OEROS"
 
-    ROS 2 is part of the robot's image, so there is nothing to install. OEROS documents its images in [its repository](https://github.com/oerosproject/meta-oeros/blob/main/docs/containers.md); for a Kria K26 board image, see [Yocto boards](../guides/yocto.md). Come back here once the robot boots.
+    ROS 2 is part of the robot's image, so there is nothing to install. OEROS documents its images in [its repository](https://github.com/oerosproject/meta-oeros/blob/main/docs/containers.md). Come back here once the robot boots.
+
+    A Kria K26 on this project's Yocto image is not an OEROS robot: it runs ROS 2 Jazzy and has its own build and on-board steps in [Yocto boards](../guides/yocto.md). Follow that guide instead of this tutorial.
 
     Yocto images often have no bash, so use the `.sh` setup script:
 

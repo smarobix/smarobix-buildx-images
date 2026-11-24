@@ -64,7 +64,7 @@ theme:
     - search.suggest
     - content.code.copy
     - content.action.edit
-    # The board tabs: choosing "Raspberry Pi · Debian" on one page selects the
+    # The board tabs: choosing "Raspberry Pi · 32-bit" on one page selects the
     # tab with that label on every page, and the choice is kept in the
     # browser. Labels therefore have to match to the character across pages.
     - content.tabs.link

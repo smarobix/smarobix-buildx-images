@@ -25,11 +25,11 @@ Every target belongs to one of two worlds, and they do not mix. In the Ubuntu an
 
 colcon buildx builds on your computer's own architecture, always. What it does with an image depends on the image's labels and architecture:
 
-- **An SDK image**, such as the OEROS ones, holds a cross toolchain and the robot's sysroot and runs on your computer. colcon buildx adds a thin layer with what the SDK lacks, once per image version, and builds through a toolchain wrapper. [OEROS robots](tool/oeros.md#how-colcon-buildx-works-with-an-oeros-image) draws it.
+- **An SDK image, or an OEROS image of your computer's architecture**, runs on your computer with the robot's sysroot and a toolchain: a cross one in `oeros-sdk-cross`, a native one in `oeros-sdk-target` on an arm64 computer. colcon buildx *prepares* it: it adds a thin layer with what the image lacks, once per image version, and builds through a toolchain wrapper. [OEROS robots](tool/oeros.md#how-colcon-buildx-works-with-an-oeros-image) draws it.
 - **A board image of another architecture**, such as `pynq-v3.1.1-jazzy` on an x86_64 or arm64 computer, becomes the sysroot of a *cross image*: its filesystem is copied, without running anything from it, into an image of your computer's architecture with the same Ubuntu or Debian release's cross compiler. Compiler, glibc and Python then match the board by construction, and Python modules get the board's file names.
-- **An image of your computer's architecture** runs as it is.
+- **Any other image of your computer's architecture** runs as it is.
 
-QEMU still has one job, outside colcon buildx: building the board images in CI, where their `apt-get install` steps run as the board.
+QEMU is used only outside colcon buildx, for instance to build the board images in CI, where their `apt-get install` steps run as the board.
 
 Nothing stops you using an image without colcon buildx, with `docker run` and `colcon build` inside. What you give up is the cross image, the SDK preparation and the toolchain wrapper, and a build owned by your user and kept apart from a host build.
 

@@ -28,7 +28,7 @@ Getting your code onto a board takes two jobs, and these pages keep them apart.
 | A robot running OEROS | OEROS, arm64 | part of the image | `oeros-sdk-cross` or `oeros-sdk-target`, see [OEROS robots](tool/oeros.md) |
 | Pynq-Z1, Pynq-Z2 | PYNQ v3.1.1: Ubuntu 22.04, 32-bit | `.deb` from this project | `pynq-v3.1.1-jazzy` |
 | Raspberry Pi 2 and newer, Zero 2 W | Raspberry Pi OS or Debian, 32-bit | `.deb` from this project | `rpi-armv7-trixie-jazzy` |
-| Kria K26 | this project's Yocto image | part of the image | `k26-oesdk-jazzy`, see [Yocto boards](guides/yocto.md) |
+| Kria K26 | this project's Yocto image | part of the image | `k26-oesdk-jazzy`, on an arm64 computer only, see [Yocto boards](guides/yocto.md) |
 
 **64-bit boards on Ubuntu or Debian** are not covered here, a Kria K26 with Ubuntu or a Raspberry Pi with 64-bit Raspberry Pi OS among them. [pixi and RoboStack](https://robostack.github.io/) put every current ROS 2 distro on them and cross-build for them from an x86 computer. [How it works](how-it-works.md) explains the split.
 

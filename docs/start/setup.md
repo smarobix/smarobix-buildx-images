@@ -4,7 +4,7 @@ Everything in these pages runs on your computer, except the commands marked as r
 
 ## Docker
 
-Install Docker Desktop, or Docker Engine on Linux. That is all: any computer works, x86_64 or arm64, and nothing runs under emulation, so there is no QEMU to set up.
+Install Docker Desktop, or Docker Engine on Linux. That is all: any computer works, x86_64 or arm64, and nothing runs under emulation, so there is no QEMU to set up. Only the Kria K26 Yocto images need an arm64 computer; see [Yocto boards](../guides/yocto.md).
 
 colcon buildx builds on your computer's own architecture. For a robot's SDK image, it adds a thin layer the first time it meets that image version; for a board image of another architecture, it builds a cross image from it, once. Both need network access the first time, and take from a few seconds to about a minute.
 
