@@ -42,7 +42,9 @@ FAMILIES = {
     "ubuntu-apt": (
         "Ubuntu with the official ROS 2 packages",
         "ROS 2 on the board comes from the official apt packages at packages.ros.org. "
-        "These images are for cross-building your workspace; no `.deb` is published.",
+        "colcon buildx builds against these images as against the other board images; "
+        "no `.deb` is published. For 64-bit Ubuntu boards the home page recommends pixi "
+        "and RoboStack instead.",
     ),
     "pynq": (
         "PYNQ",
@@ -58,17 +60,18 @@ FAMILIES = {
     "yocto-native": (
         "Yocto dev containers",
         "The board's own meta-ros userspace plus compilers, built by bitbake from the "
-        "same configuration as the board image and pushed by hand. They run as the "
-        "target. ROS 2 on the board is part of the Yocto board image, which is not "
-        "published.",
+        "same configuration as the board image and pushed by hand. They are arm64 "
+        "images: on an arm64 host colcon buildx uses them as they are, and on an x86_64 "
+        "host it refuses them rather than emulate them. ROS 2 on the board is part of "
+        "the Yocto board image, which is not published.",
     ),
     "oe-sdk": (
         "Yocto SDK cross images",
         "The meta-ros SDK installed on top of the matching dev container. The image "
         "carries a cross toolchain and runs on the host rather than as the target, so it "
         "has no target platform and is started without `--platform`. The tag has only a "
-        "`linux/arm64` image; on an x86_64 host, pull it with `--platform linux/arm64` "
-        "first.",
+        "`linux/arm64` image, so it needs an arm64 host; colcon buildx refuses it on an "
+        "x86_64 host rather than emulate it.",
     ),
 }
 

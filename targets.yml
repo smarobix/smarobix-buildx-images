@@ -164,58 +164,12 @@ targets:
       suggests: *suggests
     tested: []
 
-  # Raspberry Pi OS / Debian. Debian publishes no ROS binaries for any suite,
-  # so arm64 builds from source too. SUITE and PY_VER must agree (trixie and
-  # 3.13, bookworm and 3.11), and SUITE must equal os.codename. The image
+  # Raspberry Pi OS / Debian, 32-bit. Debian publishes no ROS binaries for any
+  # suite, so these build from source. 64-bit Raspberry Pi OS is left to pixi
+  # and RoboStack (docs/how-it-works.md). SUITE and PY_VER must agree (trixie
+  # and 3.13, bookworm and 3.11), and SUITE must equal os.codename. The image
   # name carries the ISA baseline rather than a board model: nothing here is
-  # Pi-specific, and the armv7 build runs on any ARMv7 board of that suite,
-  # not only on a Pi 5.
-  - id: rpi-arm64-trixie-jazzy
-    image: rpi-arm64-trixie
-    distro: jazzy
-    family: debian
-    board: Raspberry Pi / Debian
-    boards: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
-    os: {name: Raspberry Pi OS 13 / Debian 13, codename: trixie}
-    arch: arm64
-    platform: linux/arm64
-    rmw: rmw_cyclonedds_cpp
-    build:
-      dir: rpi
-      dockerfile: Dockerfile.jazzy
-      runs_on: [self-hosted, ARM64]
-      args: {SUITE: trixie, PY_VER: "3.13"}
-    deb:
-      pkg: rpi-trixie
-      target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
-      depends_extra: *depends_jazzy
-      recommends: *recommends
-      suggests: *suggests
-    tested: []
-
-  - id: rpi-arm64-trixie-humble
-    image: rpi-arm64-trixie
-    distro: humble
-    family: debian
-    board: Raspberry Pi / Debian
-    boards: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
-    os: {name: Raspberry Pi OS 13 / Debian 13, codename: trixie}
-    arch: arm64
-    platform: linux/arm64
-    rmw: rmw_cyclonedds_cpp
-    build:
-      dir: rpi
-      dockerfile: Dockerfile.humble
-      runs_on: [self-hosted, ARM64]
-      args: {SUITE: trixie, PY_VER: "3.13"}
-    deb:
-      pkg: rpi-trixie
-      target: Raspberry Pi OS 13 / Debian 13 (trixie), arm64
-      depends_extra: *depends_humble
-      recommends: *recommends
-      suggests: *suggests
-    tested: []
-
+  # Pi-specific, and the build runs on any ARMv7 board of that suite.
   - id: rpi-armv7-trixie-jazzy
     image: rpi-armv7-trixie
     distro: jazzy
@@ -257,52 +211,6 @@ targets:
     deb:
       pkg: rpi-trixie
       target: Raspberry Pi OS 13 / Debian 13 (trixie), armhf
-      depends_extra: *depends_humble
-      recommends: *recommends
-      suggests: *suggests
-    tested: []
-
-  - id: rpi-arm64-bookworm-jazzy
-    image: rpi-arm64-bookworm
-    distro: jazzy
-    family: debian
-    board: Raspberry Pi / Debian
-    boards: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
-    os: {name: Raspberry Pi OS 12 / Debian 12, codename: bookworm}
-    arch: arm64
-    platform: linux/arm64
-    rmw: rmw_cyclonedds_cpp
-    build:
-      dir: rpi
-      dockerfile: Dockerfile.jazzy
-      runs_on: [self-hosted, ARM64]
-      args: {SUITE: bookworm, PY_VER: "3.11"}
-    deb:
-      pkg: rpi-bookworm
-      target: Raspberry Pi OS 12 / Debian 12 (bookworm), arm64
-      depends_extra: *depends_jazzy
-      recommends: *recommends
-      suggests: *suggests
-    tested: []
-
-  - id: rpi-arm64-bookworm-humble
-    image: rpi-arm64-bookworm
-    distro: humble
-    family: debian
-    board: Raspberry Pi / Debian
-    boards: any 64-bit Raspberry Pi (3, 4, 5, Zero 2 W) or other arm64 Debian board
-    os: {name: Raspberry Pi OS 12 / Debian 12, codename: bookworm}
-    arch: arm64
-    platform: linux/arm64
-    rmw: rmw_cyclonedds_cpp
-    build:
-      dir: rpi
-      dockerfile: Dockerfile.humble
-      runs_on: [self-hosted, ARM64]
-      args: {SUITE: bookworm, PY_VER: "3.11"}
-    deb:
-      pkg: rpi-bookworm
-      target: Raspberry Pi OS 12 / Debian 12 (bookworm), arm64
       depends_extra: *depends_humble
       recommends: *recommends
       suggests: *suggests
@@ -378,20 +286,6 @@ targets:
           An interface package and an rclcpp node that depends on it, built in
           this container, ran on the KV260 (talker at 2 Hz, 26.5 MB RSS).
 
-  - id: rpi5-yocto-jazzy
-    image: rpi5-yocto
-    distro: jazzy
-    family: yocto-native
-    board: Raspberry Pi 5 / Yocto
-    boards: Raspberry Pi 5 running the Yocto image built from yocto/
-    os: {name: Yocto / meta-ros, codename: scarthgap}
-    arch: arm64
-    platform: linux/arm64
-    rmw: rmw_cyclonedds_cpp
-    published: manual
-    build: null
-    tested: []
-
   # Yocto / meta-ros: the SDK packaged as a cross-build image, on top of the
   # board's bitbake-built dev container (sdk.base_image). The SDK installer is
   # a bitbake output, published as an asset of the sdk.release release and
@@ -428,26 +322,3 @@ targets:
           Binaries built with the same SDK, installed on an Ubuntu base rather
           than on the dev container, ran unmodified on a KV260 booted from the
           matching Yocto image.
-
-  - id: rpi5-oesdk-jazzy
-    image: rpi5-oesdk
-    distro: jazzy
-    family: oe-sdk
-    board: Raspberry Pi 5 / Yocto
-    boards: Raspberry Pi 5 running the Yocto image built from yocto/
-    os: {name: Yocto / meta-ros, codename: scarthgap}
-    arch: arm64
-    platform: null
-    rmw: rmw_cyclonedds_cpp
-    build:
-      dir: oesdk
-      dockerfile: Dockerfile
-      runs_on: [self-hosted, ARM64]
-      platform: linux/arm64
-      sdk:
-        base_image: rpi5-yocto-jazzy
-        release: yocto-sdk-jazzy-2026.09.15
-        installer: oecore-ros2-image-sdktest-jazzy-aarch64-cortexa76-raspberrypi5-toolchain-nodistro.0.sh
-        sha256: a2e7e4dc2a57d9073bdaa67571fce682a112fe6a97039312e917cf517a0dd4b4
-        env_setup: environment-setup-cortexa76-oe-linux
-    tested: []
